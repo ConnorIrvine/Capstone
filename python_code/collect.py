@@ -7,7 +7,7 @@ from datetime import datetime
 SERIAL_PORT = '/dev/ttyUSB0'  # Change to your Arduino port
 BAUD_RATE = 9600
 OUTPUT_FILE = 'serial_output.txt'
-DURATION_SECONDS = 60  # How long to record (0 = infinite, Ctrl+C to stop)
+DURATION_SECONDS = 300  # How long to record (0 = infinite, Ctrl+C to stop)
 
 def capture_serial_to_txt(port, baudrate, output_file, duration=0):
     """
