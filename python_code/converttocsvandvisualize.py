@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import re
 from datetime import datetime
+import numpy as np
 
 # Configuration
 INPUT_FILE = 'serial_output.txt'
@@ -65,9 +66,67 @@ def parse_serial_output(input_file):
     
     return pd.DataFrame(data)
 
+def create_overlay_visualization(df):
+    """
+    Create a dual-axis overlay plot showing PPG signal with Polar Realtime BPM
+    """
+    print("\nGenerating PPG + BPM overlay visualization...")
+    
+    # Calculate time in seconds from start
+    df['TimeSeconds'] = (df['SystemTime'] - df['SystemTime'].iloc[0]).dt.total_seconds()
+    
+    # Filter data where both PPG and BPM exist
+    ppg_data = df[df['PPGSignal'].notna()].copy()
+    bpm_data = df[df['PolarRealtimeBPM'].notna()].copy()
+    
+    if ppg_data.empty or bpm_data.empty:
+        print("Warning: Missing PPG or BPM data. Cannot create overlay.")
+        return
+    
+    # Create figure with dual y-axes
+    fig, ax1 = plt.subplots(figsize=(16, 8))
+    fig.suptitle('PPG Signal with Realtime BPM Overlay', fontsize=16, fontweight='bold')
+    
+    # Plot PPG signal on primary y-axis
+    color_ppg = 'steelblue'
+    ax1.set_xlabel('Time (seconds)', fontsize=13)
+    ax1.set_ylabel('PPG Signal (raw)', fontsize=13, color=color_ppg)
+    line1 = ax1.plot(ppg_data['TimeSeconds'], ppg_data['PPGSignal'], 
+                     linewidth=0.8, color=color_ppg, alpha=0.7, label='PPG Signal')
+    ax1.tick_params(axis='y', labelcolor=color_ppg)
+    ax1.grid(True, alpha=0.3, linestyle='--')
+    
+    # Create secondary y-axis for BPM
+    ax2 = ax1.twinx()
+    color_bpm = 'crimson'
+    ax2.set_ylabel('Heart Rate (BPM)', fontsize=13, color=color_bpm)
+    line2 = ax2.plot(bpm_data['TimeSeconds'], bpm_data['PolarRealtimeBPM'], 
+                     marker='o', linestyle='-', linewidth=2.5, markersize=5, 
+                     color=color_bpm, label='Polar Realtime BPM', alpha=0.8)
+    ax2.tick_params(axis='y', labelcolor=color_bpm)
+    
+    # Add combined legend
+    lines = line1 + line2
+    labels = [l.get_label() for l in lines]
+    ax1.legend(lines, labels, loc='upper left', fontsize=11, framealpha=0.9)
+    
+    # Add data info text box
+    info_text = f'PPG Samples: {len(ppg_data):,}\nBPM Samples: {len(bpm_data):,}\nDuration: {ppg_data["TimeSeconds"].max():.1f}s'
+    ax1.text(0.98, 0.02, info_text, transform=ax1.transAxes, 
+             fontsize=10, verticalalignment='bottom', horizontalalignment='right',
+             bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+    
+    plt.tight_layout()
+    
+    # Save the figure
+    plt.savefig('ppg_bpm_overlay.png', dpi=300, bbox_inches='tight')
+    print("✓ Overlay visualization saved to ppg_bpm_overlay.png")
+    
+    plt.show()
+
 def create_csv_and_visualize(input_file, output_csv):
     """
-    Parse serial output, create CSV, and generate visualizations
+    Parse serial output, create CSV, and generate all visualizations including overlays
     """
     print(f"Parsing {input_file}...")
     df = parse_serial_output(input_file)
@@ -95,8 +154,8 @@ def create_csv_and_visualize(input_file, output_csv):
     print(f"Polar Realtime BPM readings: {df['PolarRealtimeBPM'].notna().sum()}")
     print(f"Polar BPM readings: {df['PolarBPM'].notna().sum()}")
     
-    # Create visualizations
-    print("\nGenerating visualizations...")
+    # Create original visualizations
+    print("\nGenerating original visualizations...")
     
     # Calculate time in seconds from start
     df['TimeSeconds'] = (df['SystemTime'] - df['SystemTime'].iloc[0]).dt.total_seconds()
@@ -150,7 +209,7 @@ def create_csv_and_visualize(input_file, output_csv):
     
     # Save the figure
     plt.savefig('data_visualization.png', dpi=300, bbox_inches='tight')
-    print("Visualization saved to data_visualization.png")
+    print("✓ Original visualization saved to data_visualization.png")
     
     # Show the plot
     plt.show()
@@ -171,14 +230,26 @@ def create_csv_and_visualize(input_file, output_csv):
         ax.grid(True, alpha=0.3)
         plt.tight_layout()
         plt.savefig('heart_rate_comparison.png', dpi=300, bbox_inches='tight')
-        print("Heart rate comparison saved to heart_rate_comparison.png")
+        print("✓ Heart rate comparison saved to heart_rate_comparison.png")
         plt.show()
+    
+    # NEW: Create overlay visualizations
+    print("\n" + "="*60)
+    print("Creating NEW overlay visualizations...")
+    print("="*60)
+    
+    create_overlay_visualization(df)
 
 if __name__ == "__main__":
     create_csv_and_visualize(INPUT_FILE, OUTPUT_CSV)
     
-    print("\n" + "="*50)
+    print("\n" + "="*60)
     print("Processing complete!")
+    print("="*60)
     print(f"CSV: {OUTPUT_CSV}")
-    print("Plots: data_visualization.png, heart_rate_comparison.png")
-    print("="*50)
+    print("\nOriginal visualizations:")
+    print("  - data_visualization.png")
+    print("  - heart_rate_comparison.png")
+    print("\nNEW overlay visualizations:")
+    print("  - ppg_bpm_overlay.png (dual-axis overlay)")
+    print("="*60)

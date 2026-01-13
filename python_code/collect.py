@@ -4,7 +4,7 @@ import time
 from datetime import datetime
 
 # Configuration
-SERIAL_PORT = 'COM5'  # Change to your Arduino port
+SERIAL_PORT = '/dev/ttyUSB0'  # Change to your Arduino port
 BAUD_RATE = 9600
 OUTPUT_FILE = 'serial_output.txt'
 DURATION_SECONDS = 60  # How long to record (0 = infinite, Ctrl+C to stop)
