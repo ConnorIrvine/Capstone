@@ -4,3 +4,4 @@ numpy
 matplotlib
 neurokit2
 openpyxl
+ipynbkernel
