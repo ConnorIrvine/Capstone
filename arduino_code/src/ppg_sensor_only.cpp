@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <avr/interrupt.h>
 
 // INDIVIDUALLY THIS CODE WORKS BUT COMBINED WE DO NOT READ THE DATA PROPERLY FOR THE POLAR SENSOR.
 // WE CAN STILL MEASURE BOTH SIMULTANEOUSLY HOWEVER PRINTING PPG SENSOR MESSES WITH POLAR SENSOR DISPLAYING PROPERLY. WORK
@@ -27,16 +28,50 @@ int Signal;                      // holds the incoming raw data. Signal value ca
 int Threshold = 700;            // Determine which Signal to "count as a beat", and which to ignore
 int count = 0;
 
+// Sampling buffer for ISR -> loop handoff
+const uint8_t SAMPLE_BUFFER_SIZE = 64;
+volatile int sampleBuffer[SAMPLE_BUFFER_SIZE];
+volatile uint8_t sampleHead = 0;
+volatile uint8_t sampleTail = 0;
+
 // Function Prototypes
 void setupPolarSensor();
 void readPolarSensor();
 void setupPulseSensor();
 void readPulseSensor();
 
+// Timer1 setup for 100 Hz (10 ms) interrupts on 16 MHz AVR
+void setupTimer1_100Hz() {
+  cli();
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1 = 0;
+  // CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Prescaler 64
+  TCCR1B |= (1 << CS11) | (1 << CS10);
+  // 16 MHz / 64 = 250 kHz; 100 Hz => 2500 counts; OCR1A = 2499
+  OCR1A = 2499;
+  // Enable compare match interrupt
+  TIMSK1 |= (1 << OCIE1A);
+  sei();
+}
+
+ISR(TIMER1_COMPA_vect) {
+  int s = analogRead(PULSE_SENSOR_PIN);
+  uint8_t nextHead = (sampleHead + 1) % SAMPLE_BUFFER_SIZE;
+  if (nextHead != sampleTail) {
+    sampleBuffer[sampleHead] = s;
+    sampleHead = nextHead;
+  }
+  // If buffer is full, sample is dropped to keep ISR fast
+}
+
 void setup() { 
   Serial.begin(9600); 
   //setupPolarSensor();
   setupPulseSensor();
+  setupTimer1_100Hz();
 } 
 
 void loop() { 
@@ -102,17 +137,19 @@ void setupPulseSensor() {
 }
 
 void readPulseSensor() {
-  Signal = analogRead(PULSE_SENSOR_PIN);  // Read the PulseSensor's value.
-  if(millis() % 10 == 0) {  // Print every 10ms
-    Serial.print(">");
-    Serial.print("PPGSignal:");
-    Serial.print(Signal);                    // Send the Signal value to Serial Plotter.
-    Serial.println();
+  int s;
+  bool hasSample = false;
+
+  noInterrupts();
+  if (sampleTail != sampleHead) {
+    s = sampleBuffer[sampleTail];
+    sampleTail = (sampleTail + 1) % SAMPLE_BUFFER_SIZE;
+    hasSample = true;
   }
-  
-  if (Signal > Threshold) {                          // If the signal is above "700", then "turn-on" Arduino's on-Board LED.
-    digitalWrite(LED13, HIGH);
-  } else {
-    digitalWrite(LED13, LOW);                //  Else, the signal must be below "700", so "turn-off" this LED.
+  interrupts();
+
+  if (hasSample) {
+    Signal = s;
+    Serial.println(Signal); // Output only the signal
   }
 }

@@ -66,8 +66,8 @@ def get_user_input():
 
 def parse_ppg_signal(line):
     """Extract PPG signal value from serial line"""
-    # Format: >PPGSignal:438
-    ppg_match = re.search(r'>PPGSignal:(\d+)', line)
+    # Format: 438
+    ppg_match = re.search(r'(\d+)', line)
     if ppg_match:
         return int(ppg_match.group(1))
     return None
@@ -175,7 +175,7 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
     
     Uses rolling 30-second windows, updating every 10 seconds
     """
-    SAMPLING_RATE = 60  # Approximate sampling rate (Hz)
+    SAMPLING_RATE = 100  # Approximate sampling rate (Hz)
     WINDOW_SIZE_SEC = 30
     UPDATE_INTERVAL_SEC = 10
     
