@@ -73,13 +73,13 @@ def parse_ppg_signal(line):
     return None
 
 
-def calculate_hrv_rmssd(ppg_window, sampling_rate=60):
+def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     """
     Calculate HRV using RMSSD from PPG signal
     
     Args:
         ppg_window: Array of PPG signal values
-        sampling_rate: Sampling rate in Hz (default 60)
+        sampling_rate: Sampling rate in Hz (default 100)
     
     Returns:
         RMSSD value in ms, or None if calculation fails
@@ -180,7 +180,6 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
     UPDATE_INTERVAL_SEC = 10
     
     window_size_samples = WINDOW_SIZE_SEC * SAMPLING_RATE
-    update_interval_samples = UPDATE_INTERVAL_SEC * SAMPLING_RATE
     
     ser = None
     
