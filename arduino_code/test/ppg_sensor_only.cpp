@@ -35,12 +35,12 @@ void readPulseSensor();
 
 void setup() { 
   Serial.begin(9600); 
-  setupPolarSensor();
+  //setupPolarSensor();
   setupPulseSensor();
 } 
 
 void loop() { 
-  readPolarSensor();
+  //readPolarSensor();
   readPulseSensor();
 }
 
