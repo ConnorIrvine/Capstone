@@ -9,6 +9,11 @@ import neurokit2 as nk
 import warnings
 
 # Suppress all warnings from neurokit2 and pandas
+
+# PLEASE SEE PLOT_REALTIME_DATA.PY FOR REAL-TIME PPG VISUALIZATION
+# THE WINDOWS SEEM LIKE THEY ARE MISSING THE LAST ONE AND THE HRV IS NOT UPDATING AS I WOULD EXPECT FOR THIS DATA
+# REWORK THE CODE IF NECESSARY 
+
 warnings.filterwarnings('ignore')
 
 def list_available_ports():
@@ -202,6 +207,7 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
         
         # Data collection
         ppg_buffer = deque(maxlen=window_size_samples)  # Sliding window
+        global all_ppg_data
         all_ppg_data = []  # Store all data
         
         start_time = time.time()
@@ -328,6 +334,11 @@ def main():
     collect_and_analyze_hrv(serial_port, duration, baud_rate)
     
     print("\nSession complete. Thank you!")
+
+    # output the ppg data to a txt file
+    with open("ppg_data.txt", "w") as f:
+        for ppg_value in all_ppg_data:
+            f.write(f"{ppg_value}\n")
 
 
 if __name__ == "__main__":
