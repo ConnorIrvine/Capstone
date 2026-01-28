@@ -1,0 +1,41 @@
+{
+  "name": "hrv-meditation-app",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "android": "react-native run-android",
+    "start": "react-native start",
+    "test": "jest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "react": "",
+    "react-native": "",
+    "react-native-ble-plx": "",
+    "@react-navigation/native": "",
+    "@react-navigation/stack": "",
+    "@react-native-async-storage/async-storage": "",
+    "react-native-fs": "",
+    "react-native-permissions": ""
+  },
+  "devDependencies": {
+    "@babel/core": "",
+    "@babel/preset-env": "",
+    "@babel/runtime": "",
+    "@react-native/babel-preset": "",
+    "@react-native/eslint-config": "",
+    "@react-native/metro-config": "",
+    "@react-native/typescript-config": "",
+    "@types/react": "",
+    "@types/react-test-renderer": "",
+    "babel-jest": "",
+    "eslint": "",
+    "jest": "",
+    "prettier": "",
+    "react-test-renderer": "",
+    "typescript": ""
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
