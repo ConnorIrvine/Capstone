@@ -11,7 +11,8 @@ import warnings
 # Suppress all warnings from neurokit2 and pandas
 
 # PLEASE SEE PLOT_REALTIME_DATA.PY FOR REAL-TIME PPG VISUALIZATION
-# THE WINDOWS SEEM LIKE THEY ARE MISSING THE LAST ONE AND THE HRV IS NOT UPDATING AS I WOULD EXPECT FOR THIS DATA
+# THE WINDOWS SEEM LIKE THEY ARE MISSING THE LAST ONE AND THE HRV IS NOT UPDATING AS I WOULD EXPECT FOR THIS DATA.
+# The bad data occurs but it is not till the next window that it is a part of that the HRV becomes weird.
 # REWORK THE CODE IF NECESSARY 
 
 warnings.filterwarnings('ignore')
@@ -210,8 +211,7 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
         global all_ppg_data
         all_ppg_data = []  # Store all data
         
-        start_time = time.time()
-        last_calculation_time = 0
+        last_calculation_time = 0.0
         previous_rmssd = None
         window_count = 0
         sample_count = 0
@@ -220,13 +220,6 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
         status_counts = {0: 0, 1: 0, 2: 0}
         
         while True:
-            elapsed_time = time.time() - start_time
-            
-            # Check if duration is complete
-            if elapsed_time > duration:
-                print("\n\nRecording complete!")
-                break
-            
             # Read PPG data from serial
             if ser.in_waiting > 0:
                 try:
@@ -242,18 +235,22 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
                         
                         # Print progress
                         if sample_count % 100 == 0:
-                            print(f"Samples collected: {sample_count} | Time: {elapsed_time:.1f}s", end='\r')
+                            data_time = sample_count / SAMPLING_RATE
+                            print(f"Samples collected: {sample_count} | Time: {data_time:.1f}s", end='\r')
                 
-                except Exception as e:
+                except Exception:
                     continue
             
+            # Use data-derived time so windows align with samples
+            data_time = sample_count / SAMPLING_RATE
+            
             # Perform HRV calculation every 10 seconds (after initial 30 seconds)
-            if (elapsed_time >= WINDOW_SIZE_SEC and 
-                elapsed_time - last_calculation_time >= UPDATE_INTERVAL_SEC and
+            if (data_time >= WINDOW_SIZE_SEC and 
+                data_time - last_calculation_time >= UPDATE_INTERVAL_SEC and
                 len(ppg_buffer) >= window_size_samples * 0.8):  # Allow 20% tolerance
                 
                 window_count += 1
-                last_calculation_time = elapsed_time
+                last_calculation_time = data_time
                 
                 # Calculate HRV for current window
                 ppg_window = np.array(ppg_buffer)
@@ -273,6 +270,11 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
                     previous_rmssd = current_rmssd
                 else:
                     print(f"\n[Window #{window_count}] Unable to calculate HRV")
+            
+            # Stop after all due windows are computed
+            if data_time >= duration:
+                print("\n\nRecording complete!")
+                break
         
         # Close serial connection
         if ser:
