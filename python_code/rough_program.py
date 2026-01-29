@@ -9,12 +9,6 @@ import neurokit2 as nk
 import warnings
 
 # Suppress all warnings from neurokit2 and pandas
-
-# PLEASE SEE PLOT_REALTIME_DATA.PY FOR REAL-TIME PPG VISUALIZATION
-# THE WINDOWS SEEM LIKE THEY ARE MISSING THE LAST ONE AND THE HRV IS NOT UPDATING AS I WOULD EXPECT FOR THIS DATA.
-# The bad data occurs but it is not till the next window that it is a part of that the HRV becomes weird.
-# REWORK THE CODE IF NECESSARY 
-
 warnings.filterwarnings('ignore')
 
 def list_available_ports():
@@ -28,7 +22,6 @@ def list_available_ports():
     for i, port in enumerate(ports):
         print(f"  {i+1}. {port.device}: {port.description}")
     return [p.device for p in ports]
-
 
 def get_user_input():
     """Get recording parameters from user"""
