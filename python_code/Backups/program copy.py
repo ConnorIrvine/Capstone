@@ -87,9 +87,6 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     if len(ppg_window) < sampling_rate * 10:  # Need at least 10 seconds
         return None
     
-    # Add the ppg window data to the combined list
-    ppg_window_data_combined.append(np.array(ppg_window))
-
     try:
         # Process PPG signal to extract heart rate variability
         signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
@@ -99,17 +96,6 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         
         # Extract RMSSD (Root Mean Square of Successive Differences)
         rmssd = hrv_metrics['HRV_RMSSD'].values[0]
-
-        # Deal with the peaks
-        if 'PPG_Peaks' in signals:
-            peaks_indices = np.where(signals['PPG_Peaks'] == 1)[0]
-        else:
-            peaks_indices = np.array([])
-
-        # append peak indices after the last index in ppg_window_combined_data
-        offset = len(ppg_window)
-        peaks_indices = [i + offset for i in peaks_indices]
-        ppg_peaks_data_combined.extend(peaks_indices)
         
         return rmssd
     except Exception as e:
@@ -284,9 +270,6 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
         all_ppg_data = []  # Store all data
         global ppg_window_data_combined
         ppg_window_data_combined = []  # Store windowed data for analysis
-
-        global ppg_peaks_data_combined
-        ppg_peaks_data_combined = []  # Store peaks data for analysis
         
         last_calculation_time = 0.0
         previous_rmssd = None
@@ -424,14 +407,6 @@ def main():
     with open("ppg_data.txt", "w") as f:
         for ppg_value in all_ppg_data:
             f.write(f"{ppg_value}\n")
-
-    with open("ppg_window_data.txt", "w") as f:
-        for ppg_value in ppg_window_data_combined:
-            f.write(f"{ppg_value}\n")
-    
-    with open("ppg_peaks_data.txt", "w") as f:
-        for peak_index in ppg_peaks_data_combined:
-            f.write(f"{peak_index}\n")
 
 
 if __name__ == "__main__":
