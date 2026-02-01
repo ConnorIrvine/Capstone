@@ -16,6 +16,14 @@ def main():
     n = len(y)
     t = np.arange(n) / FS
 
+    # Load detected peaks if available
+    try:
+        with open("ppg_peaks.txt", "r") as f:
+            peaks_indices = [int(line.strip()) for line in f if line.strip()]
+        peaks_indices = np.array(peaks_indices, dtype=int)
+    except Exception:
+        peaks_indices = np.array([], dtype=int)
+
     win_sec = 5.0
     win_samples = int(win_sec * FS)
 
@@ -25,6 +33,8 @@ def main():
     start = 0
     end = min(start + win_samples, n)
     line, = ax.plot(t[start:end], y[start:end], lw=1)
+    # Initial scatter for peaks (empty, will update in update())
+    scatter_peaks = ax.scatter([], [], color='red', s=40, label='Detected Peaks')
     ax.set_title("PPG Viewer")
     ax.set_xlabel("Time (s)")
     ax.set_ylabel("PPG")
@@ -68,6 +78,17 @@ def main():
         line.set_data(x, yseg)
         ax.set_xlim(x[0], x[-1])
 
+        # Update peaks overlay
+        if peaks_indices.size > 0:
+            # Only show peaks within current window
+            mask = (peaks_indices >= start_idx) & (peaks_indices < end_idx)
+            peaks_in_win = peaks_indices[mask]
+            x_peaks = t[peaks_in_win]
+            y_peaks = y[peaks_in_win]
+            scatter_peaks.set_offsets(np.c_[x_peaks, y_peaks])
+        else:
+            scatter_peaks.set_offsets(np.empty((0, 2)))
+
         if auto_scale:
             autoscale(x, yseg)
         else:
@@ -89,6 +110,7 @@ def main():
     btn_reset.on_clicked(reset)
     btn_auto.on_clicked(toggle_auto)
 
+    plt.legend()
     plt.show()
 
 if __name__ == "__main__":

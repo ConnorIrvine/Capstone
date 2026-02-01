@@ -85,22 +85,23 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         RMSSD value in ms, or None if calculation fails
     """
     if len(ppg_window) < sampling_rate * 10:  # Need at least 10 seconds
-        return None
-    
+        return None, None
     try:
         # Process PPG signal to extract heart rate variability
         signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
-        
         # Calculate HRV metrics
         hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
-        
         # Extract RMSSD (Root Mean Square of Successive Differences)
         rmssd = hrv_metrics['HRV_RMSSD'].values[0]
-        
-        return rmssd
+        # Extract peak indices (where PPG_Peaks == 1)
+        if 'PPG_Peaks' in signals:
+            peaks_indices = np.where(signals['PPG_Peaks'] == 1)[0]
+        else:
+            peaks_indices = np.array([])
+        return rmssd, peaks_indices
     except Exception as e:
         print(f"\n[WARNING] HRV calculation failed: {e}")
-        return None
+        return None, None
 
 
 def check_hrv_status(current_rmssd, previous_rmssd):
@@ -318,18 +319,19 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
                     print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
                     continue
 
-                current_rmssd = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
-                
+                current_rmssd, peaks_indices = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
+                # Save detected peaks indices to file for visualization
+                if peaks_indices is not None:
+                    with open("ppg_peaks.txt", "w") as f:
+                        for idx in peaks_indices:
+                            f.write(f"{idx}\n")
                 if current_rmssd is not None:
                     # Check HRV status
                     status = check_hrv_status(current_rmssd, previous_rmssd)
-                    
                     # Track status
                     status_counts[status] += 1
-                    
                     # Display feedback
                     display_feedback(status, current_rmssd, previous_rmssd, window_count)
-                    
                     # Update previous RMSSD
                     previous_rmssd = current_rmssd
                 else:
