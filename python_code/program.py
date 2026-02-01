@@ -86,13 +86,19 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     """
     if len(ppg_window) < sampling_rate * 10:  # Need at least 10 seconds
         return None
-    
-    # Add ONLY new samples to keep continuous data aligned with raw stream
-    prev_len = len(ppg_window_data_combined)
-    if prev_len < len(ppg_window):
-        new_samples = ppg_window[prev_len:]
-        ppg_window_data_combined.extend(new_samples)
-    
+
+    global appended_samples
+
+    # Add first 30 seconds, then only the newest 10 seconds each update
+    step_samples = sampling_rate * 10
+    if appended_samples == 0:
+        new_samples = ppg_window
+    else:
+        new_samples = ppg_window[-step_samples:]
+
+    ppg_window_data_combined.extend(new_samples)
+    appended_samples += len(new_samples)
+
     try:
         # Process PPG signal to extract heart rate variability
         signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
@@ -110,7 +116,7 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
             peaks_indices = np.array([])
 
         # Offset peaks by absolute index of window start
-        window_start_index = prev_len
+        window_start_index = appended_samples - len(ppg_window)
         peaks_indices = [i + window_start_index for i in peaks_indices]
         ppg_peaks_data_combined.extend(peaks_indices)
         
@@ -290,6 +296,9 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
 
         global ppg_peaks_data_combined
         ppg_peaks_data_combined = []  # Store peaks data for analysis
+
+        global appended_samples
+        appended_samples = 0
         
         last_calculation_time = 0.0
         previous_rmssd = None
