@@ -1,112 +1,115 @@
-import time
-from collections import deque
+# plot_realtime_data_all_ppg.py
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
-from pathlib import Path
+from matplotlib.widgets import Slider, Button
 
-PPG_FILE = Path("ppg_window_data.txt")
-PEAKS_FILE = Path("ppg_peaks_data.txt")
+FS = 100  # Hz
+DATA_PATH = "ppg_window_data.txt"
+PEAKS_PATH = "ppg_peaks_data.txt"
 
-SAMPLING_RATE = 100
-WINDOW_SECONDS = 30
-WINDOW_SAMPLES = SAMPLING_RATE * WINDOW_SECONDS
+def load_ppg(path):
+    with open(path, "r") as f:
+        data = [float(line.strip()) for line in f if line.strip()]
+    return np.array(data, dtype=float)
 
-# Rolling window for signal
-ppg_window = deque(maxlen=WINDOW_SAMPLES)
+def load_peaks(path):
+    try:
+        with open(path, "r") as f:
+            peaks = [int(line.strip()) for line in f if line.strip()]
+        return np.array(peaks, dtype=int)
+    except FileNotFoundError:
+        return np.array([], dtype=int)
 
-# Track total samples read (absolute index)
-total_samples = 0
+def main():
+    y = load_ppg(DATA_PATH)
+    peaks = load_peaks(PEAKS_PATH)
 
-# Peak indices (absolute indices)
-peak_indices = []
+    n = len(y)
+    t = np.arange(n) / FS
 
-# File read positions
-ppg_pos = 0
-peaks_pos = 0
+    win_sec = 5.0
+    win_samples = int(win_sec * FS)
 
+    fig, ax = plt.subplots(figsize=(10, 5))
+    plt.subplots_adjust(bottom=0.30)
 
-def read_new_lines(path, last_pos):
-    if not path.exists():
-        return [], last_pos
-    with path.open("r") as f:
-        f.seek(last_pos)
-        lines = f.readlines()
-        last_pos = f.tell()
-    return lines, last_pos
+    start = 0
+    end = min(start + win_samples, n)
+    line, = ax.plot(t[start:end], y[start:end], lw=1, color="blue")
+    peak_scatter, = ax.plot([], [], "ro", markersize=4)
 
+    ax.set_title("PPG Viewer (Window Combined + Peaks)")
+    ax.set_xlabel("Time (s)")
+    ax.set_ylabel("PPG")
+    ax.grid(True)
 
-def update(_):
-    global ppg_pos, peaks_pos, total_samples, peak_indices
+    # Fixed y-limits (no auto adjust by default)
+    fixed_ylim = (400, 800)
+    ax.set_ylim(*fixed_ylim)
+    auto_scale = False
 
-    # Read new PPG samples
-    ppg_lines, ppg_pos = read_new_lines(PPG_FILE, ppg_pos)
-    for line in ppg_lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            val = float(line)
-        except ValueError:
-            continue
-        ppg_window.append(val)
-        total_samples += 1
+    def autoscale(x, yseg):
+        pad = 0.05 * np.ptp(yseg) if np.ptp(yseg) > 0 else 1.0
+        ax.set_xlim(x[0], x[-1])
+        ax.set_ylim(np.min(yseg) - pad, np.max(yseg) + pad)
 
-    # Read new peak indices
-    peak_lines, peaks_pos = read_new_lines(PEAKS_FILE, peaks_pos)
-    for line in peak_lines:
-        line = line.strip()
-        if not line:
-            continue
-        try:
-            idx = int(line)
-        except ValueError:
-            continue
-        peak_indices.append(idx)
+    ax_start = plt.axes([0.12, 0.17, 0.78, 0.03])
+    ax_win = plt.axes([0.12, 0.12, 0.78, 0.03])
 
-    # Prune old peak indices to keep memory small
-    if len(ppg_window) > 0:
-        start_index = total_samples - len(ppg_window)
-        peak_indices = [i for i in peak_indices if i >= start_index]
+    max_start = max(0, n - 1) / FS
+    s_start = Slider(ax_start, "Start (s)", 0.0, max_start, valinit=0.0, valstep=1/FS)
+    s_win = Slider(ax_win, "Window (s)", 1.0, max(5.0, n/FS), valinit=win_sec, valstep=0.5)
 
-    # Update plot
-    if len(ppg_window) == 0:
-        return line_plot, peak_plot
+    ax_btn_reset = plt.axes([0.12, 0.05, 0.15, 0.05])
+    btn_reset = Button(ax_btn_reset, "Reset 5s")
 
-    y = np.array(ppg_window)
-    x = np.arange(len(y))
+    ax_btn_auto = plt.axes([0.30, 0.05, 0.20, 0.05])
+    btn_auto = Button(ax_btn_auto, "Auto Scale: OFF")
 
-    line_plot.set_data(x, y)
+    def update(_=None):
+        start_sec = s_start.val
+        win_sec = s_win.val
+        start_idx = int(start_sec * FS)
+        win_samples = int(win_sec * FS)
+        end_idx = min(start_idx + win_samples, n)
 
-    # Plot peaks within the current window
-    start_index = total_samples - len(ppg_window)
-    in_window = [i for i in peak_indices if start_index <= i < start_index + len(ppg_window)]
-    peak_x = np.array([i - start_index for i in in_window], dtype=int)
-    peak_y = y[peak_x] if len(peak_x) else np.array([])
+        if end_idx - start_idx < 2:
+            return
 
-    peak_plot.set_data(peak_x, peak_y)
+        x = t[start_idx:end_idx]
+        yseg = y[start_idx:end_idx]
+        line.set_data(x, yseg)
+        ax.set_xlim(x[0], x[-1])
 
-    ax.set_xlim(0, max(len(y), 1))
-    if len(y) > 0:
-        ax.set_ylim(y.min() - 50, y.max() + 50)
+        # Peaks in window
+        in_window = peaks[(peaks >= start_idx) & (peaks < end_idx)]
+        peak_x = in_window / FS
+        peak_y = y[in_window] if len(in_window) else np.array([])
+        peak_scatter.set_data(peak_x, peak_y)
 
-    return line_plot, peak_plot
+        if auto_scale:
+            autoscale(x, yseg)
+        else:
+            ax.set_ylim(*fixed_ylim)
 
+        fig.canvas.draw_idle()
 
-# Wait for files to exist
-while not PPG_FILE.exists():
-    print("Waiting for ppg_window_data.txt...")
-    time.sleep(0.5)
+    def reset(event):
+        s_win.set_val(5.0)
 
-# Plot setup
-fig, ax = plt.subplots(figsize=(10, 5))
-ax.set_title("PPG Window Data (Real-Time) with Peaks")
-ax.set_xlabel("Samples (window)")
-ax.set_ylabel("PPG Value")
+    def toggle_auto(event):
+        nonlocal auto_scale
+        auto_scale = not auto_scale
+        btn_auto.label.set_text("Auto Scale: ON" if auto_scale else "Auto Scale: OFF")
+        update()
 
-line_plot, = ax.plot([], [], color="blue", linewidth=1)
-peak_plot, = ax.plot([], [], "ro", markersize=4)
+    s_start.on_changed(update)
+    s_win.on_changed(update)
+    btn_reset.on_clicked(reset)
+    btn_auto.on_clicked(toggle_auto)
 
-ani = FuncAnimation(fig, update, interval=100, blit=True)
-plt.tight_layout()
-plt.show()
+    update()
+    plt.show()
+
+if __name__ == "__main__":
+    main()

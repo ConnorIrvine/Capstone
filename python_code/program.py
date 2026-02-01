@@ -87,8 +87,11 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     if len(ppg_window) < sampling_rate * 10:  # Need at least 10 seconds
         return None
     
-    # Add the ppg window data to the combined list
-    ppg_window_data_combined.extend(ppg_window)
+    # Add ONLY new samples to keep continuous data aligned with raw stream
+    prev_len = len(ppg_window_data_combined)
+    if prev_len < len(ppg_window):
+        new_samples = ppg_window[prev_len:]
+        ppg_window_data_combined.extend(new_samples)
     
     try:
         # Process PPG signal to extract heart rate variability
@@ -106,9 +109,9 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         else:
             peaks_indices = np.array([])
 
-        # append peak indices after the last index in ppg_window_combined_data
-        offset = len(ppg_window_data_combined) - 1 if ppg_window_data_combined else 0
-        peaks_indices = [i + offset for i in peaks_indices]
+        # Offset peaks by absolute index of window start
+        window_start_index = prev_len
+        peaks_indices = [i + window_start_index for i in peaks_indices]
         ppg_peaks_data_combined.extend(peaks_indices)
         
         return rmssd
