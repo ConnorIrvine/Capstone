@@ -88,8 +88,8 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         return None
     
     # Add the ppg window data to the combined list
-    ppg_window_data_combined.append(ppg_window)
-
+    ppg_window_data_combined.extend(ppg_window)
+    
     try:
         # Process PPG signal to extract heart rate variability
         signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
