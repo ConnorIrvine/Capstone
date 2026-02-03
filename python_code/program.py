@@ -198,21 +198,25 @@ def is_segment_bad(segment, sampling_rate):
     Returns True if the segment is likely corrupted.
     """
     if len(segment) == 0:
+        print("[DEBUG] Segment is empty")
         return True
 
     seg = np.asarray(segment, dtype=float)
 
     # Flatline / low variance
     if np.std(seg) < 1.0:
+        print("[DEBUG] Segment failed flatline/low variance check")
         return True
 
     # Clipping / saturation (too many identical values)
     unique_ratio = len(np.unique(seg)) / len(seg)
     if unique_ratio < 0.02:
+        print("[DEBUG] Segment failed clipping/saturation check")
         return True
 
     # Extreme jump check
     if np.max(np.abs(np.diff(seg))) > 2000:  # tweak if needed
+        print("[DEBUG] Segment failed extreme jump check")
         return True
 
     # Peak plausibility (very rough)
@@ -225,6 +229,7 @@ def is_segment_bad(segment, sampling_rate):
 
         # For 3s segment, expect roughly 2–6 peaks at 40–120 bpm
         if peak_count < 2 or peak_count > 6:
+            print("[DEBUG] Segment failed peak plausibility check")
             return True
     except Exception:
         return True
@@ -250,6 +255,7 @@ def is_window_bad(ppg_window, sampling_rate, segment_sec=3, max_bad_segments=0):
         segment = ppg_window[start:end]
         if is_segment_bad(segment, sampling_rate):
             bad_segments += 1
+            print(f"[DEBUG] Bad segment detected in window (segment #{i+1})")
             if bad_segments > max_bad_segments:
                 return True
 
@@ -345,7 +351,7 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
                 ppg_window = np.array(ppg_buffer)
 
                 # Segment-based quality check (10 x 3s segments)
-                if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=0):
+                if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=15):
                     print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
                     continue
 
