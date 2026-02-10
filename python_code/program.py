@@ -1,3 +1,5 @@
+import os
+import sys
 import serial
 import serial.tools.list_ports
 import time
@@ -10,6 +12,20 @@ import warnings
 
 # Suppress all warnings from neurokit2 and pandas
 warnings.filterwarnings('ignore')
+
+
+class TeeStdout:
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, data):
+        for stream in self.streams:
+            stream.write(data)
+
+    def flush(self):
+        for stream in self.streams:
+            stream.flush()
+
 
 def list_available_ports():
     """List all available serial ports"""
@@ -412,44 +428,42 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
 
 def main():
     """Main entry point"""
-    # Get user input
-    serial_port, duration, baud_rate = get_user_input()
-    
-    if serial_port is None:
-        print("\nExiting...")
-        return
-    
-    # Confirm settings
-    print(f"\n{'='*60}")
-    print("CONFIGURATION")
-    print(f"{'='*60}")
-    print(f"Port: {serial_port}")
-    print(f"Baud Rate: {baud_rate}")
-    print(f"Duration: {duration} seconds ({duration/60:.1f} minutes)")
-    print(f"{'='*60}")
-    
-    confirm = input("\nStart recording? (y/n): ").strip().lower()
-    if confirm != 'y':
-        print("Cancelled.")
-        return
-    
-    # Start collection and analysis
-    collect_and_analyze_hrv(serial_port, duration, baud_rate)
-    
-    print("\nSession complete. Thank you!")
+    results_path = os.path.join(os.path.dirname(__file__), "results.txt")
 
-    # output the ppg data to a txt file
-    with open("ppg_data.txt", "w") as f:
-        for ppg_value in all_ppg_data:
-            f.write(f"{ppg_value}\n")
-
-    with open("ppg_window_data.txt", "w") as f:
-        for ppg_value in ppg_window_data_combined:
-            f.write(f"{ppg_value}\n")
-    
-    with open("ppg_peaks_data.txt", "w") as f:
-        for peak_index in ppg_peaks_data_combined:
-            f.write(f"{peak_index}\n")
+    with open(results_path, "w", encoding="utf-8") as results_file:
+        original_stdout = sys.stdout
+        original_stderr = sys.stderr
+        sys.stdout = TeeStdout(sys.stdout, results_file)
+        sys.stderr = TeeStdout(sys.stderr, results_file)
+        try:
+            # Get user input
+            serial_port, duration, baud_rate = get_user_input()
+            
+            if serial_port is None:
+                print("\nExiting...")
+                return
+            
+            # Confirm settings
+            print(f"\n{'='*60}")
+            print("CONFIGURATION")
+            print(f"{'='*60}")
+            print(f"Port: {serial_port}")
+            print(f"Baud Rate: {baud_rate}")
+            print(f"Duration: {duration} seconds ({duration/60:.1f} minutes)")
+            print(f"{'='*60}")
+            
+            confirm = input("\nStart recording? (y/n): ").strip().lower()
+            if confirm != 'y':
+                print("Cancelled.")
+                return
+            
+            # Start collection and analysis
+            collect_and_analyze_hrv(serial_port, duration, baud_rate)
+            
+            print("\nSession complete. Thank you!")
+        finally:
+            sys.stdout = original_stdout
+            sys.stderr = original_stderr
 
 
 if __name__ == "__main__":
