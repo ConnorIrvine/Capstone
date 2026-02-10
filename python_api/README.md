@@ -31,6 +31,28 @@ python main.py
 
 The API binds to `0.0.0.0:8000`, which makes it reachable from other devices on the same network.
 
+## Build a Windows .exe
+
+This creates a single-file executable you can run on the demo laptop.
+
+```powershell
+./build.ps1
+```
+
+The output is:
+
+```
+dist\hrv-api.exe
+```
+
+Run it:
+
+```powershell
+./dist/hrv-api.exe
+```
+
+If Windows Defender prompts for network access, allow it for Private networks.
+
 ### Find Your LAN IP
 
 On Windows:
