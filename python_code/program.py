@@ -465,6 +465,19 @@ def main():
             sys.stdout = original_stdout
             sys.stderr = original_stderr
 
+    # output the ppg data to a txt file
+    with open("ppg_data.txt", "w") as f:
+        for ppg_value in all_ppg_data:
+            f.write(f"{ppg_value}\n")
+
+    with open("ppg_window_data.txt", "w") as f:
+        for ppg_value in ppg_window_data_combined:
+            f.write(f"{ppg_value}\n")
+    
+    with open("ppg_peaks_data.txt", "w") as f:
+        for peak_index in ppg_peaks_data_combined:
+            f.write(f"{peak_index}\n")
+
 
 if __name__ == "__main__":
     main()
