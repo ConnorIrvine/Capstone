@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <avr/interrupt.h>
 
 // INDIVIDUALLY THIS CODE WORKS BUT COMBINED WE DO NOT READ THE DATA PROPERLY FOR THE POLAR SENSOR.
 // WE CAN STILL MEASURE BOTH SIMULTANEOUSLY HOWEVER PRINTING PPG SENSOR MESSES WITH POLAR SENSOR DISPLAYING PROPERLY. WORK
@@ -7,8 +6,8 @@
 
 // Pin Definitions
 const int POLAR_PIN = 7;
-const int PULSE_SENSOR_PIN = 0;  // Pulse Sensor PURPLE WIRE connected to ANALOG PIN 0
-const int LED13 = 13;            // On-board Arduino LED
+const int PULSE_SENSOR_PIN = A0;  // Pulse Sensor PURPLE WIRE connected to ANALOG PIN A0
+const int LED13 = LED_BUILTIN;    // On-board Arduino LED
 
 // Polar Sensor Variables
 byte polarOldSample, polarSample;
@@ -24,57 +23,52 @@ int polarBpmTotal = 0;
 int polarBpmAverage = 0;
 
 // PulseSensor Variables
-int Signal;                      // holds the incoming raw data. Signal value can range from 0-1024
+int Signal;                     // holds the incoming raw data. Signal value can range from 0-4095 on ESP32
 int Threshold = 700;            // Determine which Signal to "count as a beat", and which to ignore
 int count = 0;
 
-// Sampling buffer for ISR -> loop handoff
+// Sampling buffer for timer -> loop handoff
 const uint8_t SAMPLE_BUFFER_SIZE = 64;
 volatile int sampleBuffer[SAMPLE_BUFFER_SIZE];
 volatile uint8_t sampleHead = 0;
 volatile uint8_t sampleTail = 0;
+
+// Timer flag (set in ISR, handled in loop)
+volatile bool sampleFlag = false;
+portMUX_TYPE sampleMux = portMUX_INITIALIZER_UNLOCKED;
+hw_timer_t *sampleTimer = nullptr;
 
 // Function Prototypes
 void setupPolarSensor();
 void readPolarSensor();
 void setupPulseSensor();
 void readPulseSensor();
+void setupTimer100Hz();
 
-// Timer1 setup for 100 Hz (10 ms) interrupts on 16 MHz AVR
-void setupTimer1_100Hz() {
-  cli();
-  TCCR1A = 0;
-  TCCR1B = 0;
-  TCNT1 = 0;
-  // CTC mode
-  TCCR1B |= (1 << WGM12);
-  // Prescaler 64
-  TCCR1B |= (1 << CS11) | (1 << CS10);
-  // 16 MHz / 64 = 250 kHz; 100 Hz => 2500 counts; OCR1A = 2499
-  OCR1A = 2499;
-  // Enable compare match interrupt
-  TIMSK1 |= (1 << OCIE1A);
-  sei();
+// Timer ISR: just set a flag (keep ISR short)
+void IRAM_ATTR onSampleTimer() {
+  portENTER_CRITICAL_ISR(&sampleMux);
+  sampleFlag = true;
+  portEXIT_CRITICAL_ISR(&sampleMux);
 }
 
-ISR(TIMER1_COMPA_vect) {
-  int s = analogRead(PULSE_SENSOR_PIN);
-  uint8_t nextHead = (sampleHead + 1) % SAMPLE_BUFFER_SIZE;
-  if (nextHead != sampleTail) {
-    sampleBuffer[sampleHead] = s;
-    sampleHead = nextHead;
-  }
-  // If buffer is full, sample is dropped to keep ISR fast
+void setupTimer100Hz() {
+  // 80 MHz / 80 = 1 MHz timer tick -> 1 tick = 1 us
+  sampleTimer = timerBegin(0, 80, true);
+  timerAttachInterrupt(sampleTimer, &onSampleTimer, true);
+  // 100 Hz = 10,000 us
+  timerAlarmWrite(sampleTimer, 10000, true);
+  timerAlarmEnable(sampleTimer);
 }
 
-void setup() { 
-  Serial.begin(9600); 
+void setup() {
+  Serial.begin(115200);
   //setupPolarSensor();
   setupPulseSensor();
-  setupTimer1_100Hz();
-} 
+  setupTimer100Hz();
+}
 
-void loop() { 
+void loop() {
   //readPolarSensor();
   readPulseSensor();
 }
@@ -83,14 +77,14 @@ void loop() {
 
 void setupPolarSensor() {
   pinMode(POLAR_PIN, INPUT);
-  Serial.println("Waiting for heart beat..."); 
-  
+  Serial.println("Waiting for heart beat...");
+
   // Initialize BPM readings array
   for (int i = 0; i < polarNumReadings; i++) {
     polarBpmReadings[i] = 0;
   }
-  
-  // Wait until a heart beat is detected   
+
+  // Wait until a heart beat is detected
   while (!digitalRead(POLAR_PIN)) {};
   Serial.println("Heart beat detected!");
   polarLastBeatTime = millis();
@@ -98,23 +92,23 @@ void setupPolarSensor() {
 
 void readPolarSensor() {
   polarSample = digitalRead(POLAR_PIN);
-  
+
   if (polarSample && (polarOldSample != polarSample)) {
     // Beat detected
     polarCurrentBeatTime = millis();
     polarBeatInterval = polarCurrentBeatTime - polarLastBeatTime;
     polarLastBeatTime = polarCurrentBeatTime;
-    
+
     // Calculate BPM from interval (60000 ms = 1 minute)
     polarBPM = 60000 / polarBeatInterval;
-    
+
     // Add to running average
     polarBpmTotal = polarBpmTotal - polarBpmReadings[polarReadIndex];
     polarBpmReadings[polarReadIndex] = polarBPM;
     polarBpmTotal = polarBpmTotal + polarBpmReadings[polarReadIndex];
     polarReadIndex = (polarReadIndex + 1) % polarNumReadings;
     polarBpmAverage = polarBpmTotal / polarNumReadings;
-    
+
     // Output results - ONLY when beat is detected, ONLY after 5 beats
     if (polarBeatCount > 5) {
       Serial.print(">");
@@ -126,7 +120,7 @@ void readPolarSensor() {
     }
     polarBeatCount++; // iterate number of beats
   }
-  
+
   polarOldSample = polarSample;
 }
 
@@ -137,16 +131,34 @@ void setupPulseSensor() {
 }
 
 void readPulseSensor() {
+  bool doSample = false;
+
+  portENTER_CRITICAL(&sampleMux);
+  if (sampleFlag) {
+    sampleFlag = false;
+    doSample = true;
+  }
+  portEXIT_CRITICAL(&sampleMux);
+
+  if (doSample) {
+    int s = analogRead(PULSE_SENSOR_PIN);
+    uint8_t nextHead = (sampleHead + 1) % SAMPLE_BUFFER_SIZE;
+    if (nextHead != sampleTail) {
+      sampleBuffer[sampleHead] = s;
+      sampleHead = nextHead;
+    }
+  }
+
   int s;
   bool hasSample = false;
 
-  noInterrupts();
+  portENTER_CRITICAL(&sampleMux);
   if (sampleTail != sampleHead) {
     s = sampleBuffer[sampleTail];
     sampleTail = (sampleTail + 1) % SAMPLE_BUFFER_SIZE;
     hasSample = true;
   }
-  interrupts();
+  portEXIT_CRITICAL(&sampleMux);
 
   if (hasSample) {
     Signal = s;
