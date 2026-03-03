@@ -73,9 +73,9 @@ def get_user_input():
         print("Invalid duration!")
         return None, None, None
     
-    # Get baud rate (default 9600)
-    baud_input = input("\nEnter baud rate (press Enter for 9600): ").strip()
-    baud_rate = int(baud_input) if baud_input else 9600
+    # Get baud rate (default 115200)
+    baud_input = input("\nEnter baud rate (press Enter for 115200): ").strip()
+    baud_rate = int(baud_input) if baud_input else 115200
     
     return serial_port, duration, baud_rate
 
@@ -278,7 +278,7 @@ def is_window_bad(ppg_window, sampling_rate, segment_sec=3, max_bad_segments=0):
     return False
 
 
-def collect_and_analyze_hrv(serial_port, duration, baud_rate=9600):
+def collect_and_analyze_hrv(serial_port, duration, baud_rate=115200):
     """
     Main function to collect PPG data and perform real-time HRV analysis
     
