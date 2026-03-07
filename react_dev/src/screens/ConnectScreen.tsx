@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ListRenderItemInfo,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBLEContext } from '../context/BLEContext';
@@ -20,6 +20,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList, 'Connect'>;
 
 export function ConnectScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const {
     isScanning,
     isConnecting,
@@ -69,7 +70,7 @@ export function ConnectScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
 
       {/* Header */}
@@ -140,7 +141,7 @@ export function ConnectScreen() {
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </View>
   );
 }
 

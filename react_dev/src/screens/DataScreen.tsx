@@ -4,11 +4,11 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   StatusBar,
   ScrollView,
   Alert,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useBLEContext } from '../context/BLEContext';
@@ -21,6 +21,7 @@ const RATE_WINDOW_MS = 1000; // how often to recalculate sample rate
 
 export function DataScreen() {
   const navigation = useNavigation<Nav>();
+  const insets = useSafeAreaInsets();
   const { connectedDeviceId, ppgData, disconnectFromDevice } = useBLEContext();
 
   // Track sample rate (samples/sec)
@@ -69,7 +70,7 @@ export function DataScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor="#0f172a" />
 
       {/* Header */}
@@ -134,7 +135,7 @@ export function DataScreen() {
           <InfoRow label="Chart Window" value="5 seconds" />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
