@@ -44,14 +44,20 @@ npm install
 3. Under **User variables**, click **New**:
    - Name: `ANDROID_HOME`
    - Value: `C:\Users\<your-username>\AppData\Local\Android\Sdk`
-4. Find **`Path`** in User variables → **Edit** → add two new entries:
+4. Click **New** again to add a second variable:
+   - Name: `JAVA_HOME`
+   - Value: `C:\Program Files\Android\Android Studio\jbr`
+
+   > **Tip:** To confirm the exact path, open Android Studio → **File** → **Settings** → **Build, Execution, Deployment** → **Build Tools** → **Gradle** and check the **Gradle JDK** path shown there.
+5. Find **`Path`** in User variables → **Edit** → add two new entries:
    - `C:\Users\<your-username>\AppData\Local\Android\Sdk\platform-tools`
    - `C:\Users\<your-username>\AppData\Local\Android\Sdk\emulator`
-5. Click **OK** on all dialogs, then **restart your terminal**
+6. Click **OK** on all dialogs, then **restart your terminal**
 
 Verify it worked:
 ```bash
 adb --version
+java -version
 ```
 
 ---
