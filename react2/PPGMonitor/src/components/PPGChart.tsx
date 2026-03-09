@@ -1,14 +1,12 @@
-import React, {useCallback, useEffect, useRef} from 'react';
+import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {StyleSheet, View} from 'react-native';
 import {
   Canvas,
   Path as SkiaPath,
   Skia,
-  useCanvasRef,
   Line,
   vec,
   Text as SkiaText,
-  useFont,
   matchFont,
 } from '@shopify/react-native-skia';
 
@@ -29,8 +27,7 @@ interface PPGChartProps {
 }
 
 const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef}) => {
-  const canvasRef = useCanvasRef();
-  const frameRef = useRef<number>(0);
+  const [tick, setTick] = useState(0);
 
   const chartPadding = {top: 30, bottom: 30, left: 15, right: 15};
   const chartWidth = width - chartPadding.left - chartPadding.right;
@@ -52,23 +49,13 @@ const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef}) =
     [chartHeight, chartPadding.top],
   );
 
-  // Redraw at ~30fps using requestAnimationFrame for low latency
+  // Force re-render at ~30fps so the path rebuilds with latest data
   useEffect(() => {
-    let running = true;
-    const tick = () => {
-      if (!running) {
-        return;
-      }
-      frameRef.current++;
-      // Force Skia canvas redraw by invalidating ref
-      canvasRef.current?.redraw();
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-    return () => {
-      running = false;
-    };
-  }, [canvasRef]);
+    const interval = setInterval(() => {
+      setTick(t => t + 1);
+    }, 33); // ~30fps
+    return () => clearInterval(interval);
+  }, []);
 
   // Build path from data on each render
   const buildPath = useCallback(() => {
@@ -125,7 +112,7 @@ const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef}) =
 
   return (
     <View style={styles.container}>
-      <Canvas ref={canvasRef} style={{width, height}}>
+      <Canvas style={{width, height}}>
         {/* Grid lines */}
         {gridElements}
 

@@ -143,8 +143,9 @@ class BleService {
       this.subscription = connectedDevice.monitorCharacteristicForService(
         SERVICE_UUID,
         TX_CHAR_UUID,
-        (_error, characteristic) => {
-          if (_error) {
+        (error, characteristic) => {
+          if (error) {
+            console.warn('[BLE] Notification error:', error.message);
             return;
           }
           if (characteristic?.value) {
@@ -160,23 +161,27 @@ class BleService {
   }
 
   private parseAndEmit(base64Value: string): void {
-    // Decode base64 to string
-    const raw = atob(base64Value);
-    // The Arduino sends "val1,val2,val3,val4\n"
-    const trimmed = raw.trim();
-    if (!trimmed) {
-      return;
-    }
-    const parts = trimmed.split(',');
-    const samples: number[] = [];
-    for (let i = 0; i < parts.length; i++) {
-      const val = parseInt(parts[i], 10);
-      if (!isNaN(val)) {
-        samples.push(val);
+    try {
+      // Decode base64 to string
+      const raw = atob(base64Value);
+      console.log('[BLE] Raw data:', JSON.stringify(raw));
+      // The Arduino sends "val1,val2,val3,val4\n" — may contain multiple lines
+      const lines = raw.trim().split('\n');
+      const samples: number[] = [];
+      for (const line of lines) {
+        const parts = line.trim().split(',');
+        for (const part of parts) {
+          const val = parseInt(part, 10);
+          if (!isNaN(val)) {
+            samples.push(val);
+          }
+        }
       }
-    }
-    if (samples.length > 0) {
-      this.onData?.(samples);
+      if (samples.length > 0) {
+        this.onData?.(samples);
+      }
+    } catch (e: any) {
+      console.warn('[BLE] Parse error:', e.message, 'input:', base64Value);
     }
   }
 
