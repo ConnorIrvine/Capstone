@@ -7,6 +7,7 @@ import {
   Characteristic,
   State,
   Subscription,
+  ConnectionPriority,
 } from 'react-native-ble-plx';
 
 // ─── Arduino BLE constants ────────────────────────────────────────────────────
@@ -19,6 +20,9 @@ const CHART_WINDOW = 500;
 
 // Chart refresh rate (ms) – batches incoming 100 Hz data down to ~30 fps
 const CHART_INTERVAL_MS = 33;
+
+// Maximum samples allowed to queue in the BLE buffer before dropping stale data
+const MAX_BUFFER = 100;
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 export interface ScannedDevice {
@@ -168,6 +172,9 @@ export function useBLE() {
       const device = await bleManager.connectToDevice(deviceId, { timeout: 15_000 });
       await device.discoverAllServicesAndCharacteristics();
 
+      // Request high connection priority to minimise BLE interval (~11 ms)
+      await device.requestConnectionPriority(ConnectionPriority.High);
+
       connectedDeviceRef.current = device;
 
       // Watch for unexpected disconnects
@@ -193,15 +200,20 @@ export function useBLE() {
             return;
           }
 
-          // Handle potential multi-line payloads defensively
-          const lines = decoded.split('\n');
-          for (const line of lines) {
-            const trimmed = line.trim();
+          // Handle comma-separated batch packets: "1024,1056,1089,1102\n"
+          const tokens = decoded.split(/[\n,]/);
+          for (const token of tokens) {
+            const trimmed = token.trim();
             if (!trimmed) continue;
             const val = parseInt(trimmed, 10);
             if (!isNaN(val)) {
               dataBufferRef.current.push(val);
             }
+          }
+
+          // Drop stale backlog — keep only the most recent MAX_BUFFER samples
+          if (dataBufferRef.current.length > MAX_BUFFER) {
+            dataBufferRef.current = dataBufferRef.current.slice(-MAX_BUFFER);
           }
         },
       );

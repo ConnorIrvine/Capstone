@@ -132,22 +132,11 @@ void readPulseSensor() {
   if (hasSample) {
     Signal = s;
 
-    // Accumulate samples and send in batches of 4 (25 notifications/sec instead of 100)
-    // This keeps JS bridge overhead manageable while preserving 100 Hz data rate
-    static int batchBuf[4];
-    static uint8_t batchCount = 0;
-
-    batchBuf[batchCount++] = Signal;
-
-    if (batchCount >= 4) {
-      if (bleClientConnected && txCharacteristic != nullptr) {
-        char out[40];
-        int len = snprintf(out, sizeof(out), "%d,%d,%d,%d\n",
-                           batchBuf[0], batchBuf[1], batchBuf[2], batchBuf[3]);
-        txCharacteristic->setValue((uint8_t *)out, len);
-        txCharacteristic->notify();
-      }
-      batchCount = 0;
+    if (bleClientConnected && txCharacteristic != nullptr) {
+      char out[12];
+      int len = snprintf(out, sizeof(out), "%d\n", Signal);
+      txCharacteristic->setValue((uint8_t *)out, len);
+      txCharacteristic->notify();
     }
   }
 }
