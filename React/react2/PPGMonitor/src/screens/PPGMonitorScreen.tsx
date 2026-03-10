@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
+  Platform,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import PPGChart from '../components/PPGChart';
@@ -78,7 +79,8 @@ const PPGMonitorScreen: React.FC = () => {
     });
 
     return () => {
-      bleService.destroy();
+      bleService.setOnData(() => {});
+      bleService.setOnStatusChange(() => {});
     };
   }, [handleData]);
 
@@ -177,7 +179,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0d0d1a',
     paddingHorizontal: 8,
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 16,
   },
   header: {
     paddingHorizontal: 8,

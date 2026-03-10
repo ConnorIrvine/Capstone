@@ -8,6 +8,7 @@ import {
   StatusBar,
   TextInput,
   ScrollView,
+  Platform,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import {analyzeHRV, HRVResult} from '../services/HRVService';
@@ -348,7 +349,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   scrollContainer: {
-    paddingTop: 16,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight ?? 0) + 8 : 16,
     paddingBottom: 24,
   },
   header: {

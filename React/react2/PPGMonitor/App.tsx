@@ -1,5 +1,5 @@
 import React from 'react';
-import {SafeAreaView, StyleSheet} from 'react-native';
+import {StatusBar, View, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import PPGMonitorScreen from './src/screens/PPGMonitorScreen';
@@ -9,7 +9,8 @@ const Tab = createBottomTabNavigator();
 
 const App: React.FC = () => {
   return (
-    <SafeAreaView style={styles.root}>
+    <View style={styles.root}>
+      <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
       <NavigationContainer>
         <Tab.Navigator
           screenOptions={{
@@ -42,7 +43,7 @@ const App: React.FC = () => {
           />
         </Tab.Navigator>
       </NavigationContainer>
-    </SafeAreaView>
+    </View>
   );
 };
 

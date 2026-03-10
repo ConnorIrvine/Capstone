@@ -129,7 +129,11 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
 
     try:
         # Process PPG signal to extract heart rate variability
-        signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
+        signals, info = nk.ppg_process(
+            ppg_window,
+            sampling_rate=sampling_rate,
+            method_kwargs={"distance": 30}  # 30 samples = 0.3s at 100Hz
+        )
         
         # Calculate HRV metrics
         hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
