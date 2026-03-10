@@ -1,9 +1,10 @@
 import os
 import sys
-import serial
-import serial.tools.list_ports
+import asyncio
+import threading
+import queue as queue_module
+from bleak import BleakScanner, BleakClient
 import time
-import re
 from datetime import datetime
 from collections import deque
 import numpy as np
@@ -12,6 +13,10 @@ import warnings
 
 # Suppress all warnings from neurokit2 and pandas
 warnings.filterwarnings('ignore')
+
+# BLE settings
+BLE_DEVICE_NAME = "NanoESP32_PPG"
+TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
 
 
 class TeeStdout:
@@ -27,17 +32,21 @@ class TeeStdout:
             stream.flush()
 
 
-def list_available_ports():
-    """List all available serial ports"""
-    ports = serial.tools.list_ports.comports()
-    if not ports:
-        print("No serial ports found!")
-        return []
-    
-    print("\nAvailable serial ports:")
-    for i, port in enumerate(ports):
-        print(f"  {i+1}. {port.device}: {port.description}")
-    return [p.device for p in ports]
+def scan_ble_devices(timeout=10):
+    """Scan for BLE devices matching the PPG sensor"""
+    async def _scan():
+        print(f"\nScanning for BLE device '{BLE_DEVICE_NAME}'...")
+        devices = await BleakScanner.discover(timeout=timeout, return_adv=True)
+        found = []
+        for dev, adv in devices.values():
+            name = dev.name or adv.local_name or ""
+            if name == BLE_DEVICE_NAME:
+                found.append(dev)
+                print(f"  Found: {name} ({dev.address}) RSSI={adv.rssi}")
+        if not found:
+            print("No PPG devices found!")
+        return found
+    return asyncio.run(_scan())
 
 
 def get_user_input():
@@ -46,21 +55,28 @@ def get_user_input():
     print("HRV MONITORING SYSTEM - Meditation Feedback")
     print("="*60)
     
-    # Get serial port
-    available_ports = list_available_ports()
-    if not available_ports:
-        return None, None, None
+    # Scan for BLE devices
+    devices = scan_ble_devices()
+    if not devices:
+        return None, None
     
-    port_choice = input(f"\nSelect port number (1-{len(available_ports)}): ").strip()
-    try:
-        port_idx = int(port_choice) - 1
-        if port_idx < 0 or port_idx >= len(available_ports):
-            print("Invalid port selection!")
-            return None, None, None
-        serial_port = available_ports[port_idx]
-    except ValueError:
-        # Allow direct port entry
-        serial_port = port_choice
+    if len(devices) == 1:
+        device = devices[0]
+        print(f"\nAuto-selected device: {device.name} ({device.address})")
+    else:
+        print("\nMultiple devices found:")
+        for i, dev in enumerate(devices):
+            print(f"  {i+1}. {dev.name} ({dev.address})")
+        choice = input(f"\nSelect device number (1-{len(devices)}): ").strip()
+        try:
+            idx = int(choice) - 1
+            if idx < 0 or idx >= len(devices):
+                print("Invalid selection!")
+                return None, None
+            device = devices[idx]
+        except ValueError:
+            print("Invalid input!")
+            return None, None
     
     # Get duration
     duration_input = input("\nEnter recording duration in seconds (e.g., 180 for 3 minutes): ").strip()
@@ -68,25 +84,21 @@ def get_user_input():
         duration = int(duration_input)
         if duration < 30:
             print("Duration must be at least 30 seconds for HRV calculation!")
-            return None, None, None
+            return None, None
     except ValueError:
         print("Invalid duration!")
-        return None, None, None
+        return None, None
     
-    # Get baud rate (default 115200)
-    baud_input = input("\nEnter baud rate (press Enter for 115200): ").strip()
-    baud_rate = int(baud_input) if baud_input else 115200
-    
-    return serial_port, duration, baud_rate
+    return device.address, duration
 
 
 def parse_ppg_signal(line):
-    """Extract PPG signal value from serial line"""
-    # Format: 438
-    ppg_match = re.search(r'(\d+)', line)
-    if ppg_match:
-        return int(ppg_match.group(1))
-    return None
+    """Extract PPG signal values from comma-separated batch (e.g., '438,442,445,440')"""
+    try:
+        values = [int(v.strip()) for v in line.split(',') if v.strip()]
+        return values if values else None
+    except ValueError:
+        return None
 
 
 def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
@@ -278,9 +290,42 @@ def is_window_bad(ppg_window, sampling_rate, segment_sec=3, max_bad_segments=0):
     return False
 
 
-def collect_and_analyze_hrv(serial_port, duration, baud_rate=115200):
+def _ble_stream_thread(device_address, data_queue, stop_event, connected_event):
+    """Background thread: connect to BLE device and stream PPG data into a queue"""
+    async def _run():
+        try:
+            async with BleakClient(device_address, timeout=20.0) as client:
+                if not client.is_connected:
+                    print("\nBLE connection failed!")
+                    return
+
+                connected_event.set()
+
+                def on_notify(sender, data: bytearray):
+                    txt = data.decode("utf-8", errors="ignore").strip()
+                    for line in txt.split('\n'):
+                        line = line.strip()
+                        if line:
+                            values = parse_ppg_signal(line)
+                            if values:
+                                for v in values:
+                                    data_queue.put(v)
+
+                await client.start_notify(TX_CHAR_UUID, on_notify)
+
+                while not stop_event.is_set() and client.is_connected:
+                    await asyncio.sleep(0.1)
+
+                await client.stop_notify(TX_CHAR_UUID)
+        except Exception as e:
+            print(f"\nBLE error: {e}")
+
+    asyncio.run(_run())
+
+
+def collect_and_analyze_hrv(device_address, duration):
     """
-    Main function to collect PPG data and perform real-time HRV analysis
+    Main function to collect PPG data via BLE and perform real-time HRV analysis
     
     Uses rolling 30-second windows, updating every 10 seconds
     """
@@ -290,15 +335,29 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=115200):
     
     window_size_samples = WINDOW_SIZE_SEC * SAMPLING_RATE
     
-    ser = None
+    # Set up BLE communication via queue
+    data_queue = queue_module.Queue()
+    stop_event = threading.Event()
+    connected_event = threading.Event()
+    
+    ble_thread = threading.Thread(
+        target=_ble_stream_thread,
+        args=(device_address, data_queue, stop_event, connected_event),
+        daemon=True
+    )
     
     try:
-        # Open serial connection
-        ser = serial.Serial(serial_port, baud_rate, timeout=1)
-        time.sleep(2)  # Wait for Arduino to reset
-        
         print(f"\n{'='*60}")
-        print(f"Connected to {serial_port} at {baud_rate} baud")
+        print(f"Connecting to BLE device {device_address}...")
+        ble_thread.start()
+        
+        # Wait for BLE connection
+        if not connected_event.wait(timeout=30):
+            print("Failed to connect to BLE device within 30 seconds.")
+            stop_event.set()
+            return
+        
+        print(f"Connected to {device_address} via BLE")
         print(f"Recording for {duration} seconds...")
         print(f"HRV calculated every 10 seconds using 30-second windows")
         print(f"{'='*60}")
@@ -331,26 +390,23 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=115200):
         status_counts = {0: 0, 1: 0, 2: 0}
         
         while True:
-            # Read PPG data from serial
-            if ser.in_waiting > 0:
-                try:
-                    line = ser.readline().decode('utf-8', errors='replace').strip()
+            # Read PPG data from BLE queue
+            try:
+                while True:
+                    ppg_value = data_queue.get_nowait()
+                    ppg_buffer.append(ppg_value)
+                    all_ppg_data.append(ppg_value)
+                    sample_count += 1
                     
-                    # Extract PPG signal
-                    ppg_value = parse_ppg_signal(line)
-                    
-                    if ppg_value is not None:
-                        ppg_buffer.append(ppg_value)
-                        all_ppg_data.append(ppg_value)
-                        sample_count += 1
-                        
-                        # Print progress
-                        if sample_count % 100 == 0:
-                            data_time = sample_count / SAMPLING_RATE
-                            print(f"Samples collected: {sample_count} | Time: {data_time:.1f}s", end='\r')
-                
-                except Exception:
-                    continue
+                    # Print progress
+                    if sample_count % 100 == 0:
+                        data_time = sample_count / SAMPLING_RATE
+                        print(f"Samples collected: {sample_count} | Time: {data_time:.1f}s", end='\r')
+            except queue_module.Empty:
+                pass
+            
+            # Small sleep to avoid busy-waiting
+            time.sleep(0.01)
             
             # Use data-derived time so windows align with samples
             data_time = sample_count / SAMPLING_RATE
@@ -392,10 +448,15 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=115200):
             if data_time >= duration:
                 print("\n\nRecording complete!")
                 break
+            
+            # Check if BLE thread is still running
+            if not ble_thread.is_alive():
+                print("\n\nBLE connection lost!")
+                break
         
-        # Close serial connection
-        if ser:
-            ser.close()
+        # Stop BLE thread
+        stop_event.set()
+        ble_thread.join(timeout=5)
         
         # Final summary
         print("\n" + "="*60)
@@ -410,20 +471,16 @@ def collect_and_analyze_hrv(serial_port, duration, baud_rate=115200):
         print(f"  YELLOW (Minor decrease):  {status_counts[1]} windows")
         print(f"  RED (Significant drop):   {status_counts[2]} windows")
         print("="*60)
-        
-    except serial.SerialException as e:
-        print(f"\nError: Could not open serial port {serial_port}")
-        print(f"Details: {e}")
     
     except KeyboardInterrupt:
         print("\n\nRecording stopped by user")
-        if ser:
-            ser.close()
+        stop_event.set()
+        ble_thread.join(timeout=5)
     
     except Exception as e:
         print(f"\nUnexpected error: {e}")
-        if ser:
-            ser.close()
+        stop_event.set()
+        ble_thread.join(timeout=5)
 
 
 def main():
@@ -437,9 +494,9 @@ def main():
         sys.stderr = TeeStdout(sys.stderr, results_file)
         try:
             # Get user input
-            serial_port, duration, baud_rate = get_user_input()
+            device_address, duration = get_user_input()
             
-            if serial_port is None:
+            if device_address is None:
                 print("\nExiting...")
                 return
             
@@ -447,8 +504,7 @@ def main():
             print(f"\n{'='*60}")
             print("CONFIGURATION")
             print(f"{'='*60}")
-            print(f"Port: {serial_port}")
-            print(f"Baud Rate: {baud_rate}")
+            print(f"BLE Device: {device_address}")
             print(f"Duration: {duration} seconds ({duration/60:.1f} minutes)")
             print(f"{'='*60}")
             
@@ -458,7 +514,7 @@ def main():
                 return
             
             # Start collection and analysis
-            collect_and_analyze_hrv(serial_port, duration, baud_rate)
+            collect_and_analyze_hrv(device_address, duration)
             
             print("\nSession complete. Thank you!")
         finally:

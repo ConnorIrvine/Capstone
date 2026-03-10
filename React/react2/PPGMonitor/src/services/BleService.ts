@@ -17,6 +17,8 @@ class BleService {
   private onData: PPGCallback | null = null;
   private onStatusChange: ((status: string) => void) | null = null;
   private _connected = false;
+  private additionalDataListeners: Map<string, PPGCallback> = new Map();
+  private additionalStatusListeners: Map<string, (status: string) => void> = new Map();
 
   constructor() {
     this.manager = new BleManager();
@@ -34,8 +36,25 @@ class BleService {
     this.onStatusChange = cb;
   }
 
+  addOnData(id: string, cb: PPGCallback) {
+    this.additionalDataListeners.set(id, cb);
+  }
+
+  removeOnData(id: string) {
+    this.additionalDataListeners.delete(id);
+  }
+
+  addOnStatusChange(id: string, cb: (status: string) => void) {
+    this.additionalStatusListeners.set(id, cb);
+  }
+
+  removeOnStatusChange(id: string) {
+    this.additionalStatusListeners.delete(id);
+  }
+
   private emitStatus(status: string) {
     this.onStatusChange?.(status);
+    this.additionalStatusListeners.forEach(cb => cb(status));
   }
 
   async requestPermissions(): Promise<boolean> {
@@ -179,6 +198,7 @@ class BleService {
       }
       if (samples.length > 0) {
         this.onData?.(samples);
+        this.additionalDataListeners.forEach(cb => cb(samples));
       }
     } catch (e: any) {
       console.warn('[BLE] Parse error:', e.message, 'input:', base64Value);
