@@ -92,6 +92,15 @@ android {
         versionCode 1
         versionName "1.0"
     }
+
+    flavorDimensions "default"
+    productFlavors {
+        capstoneprod {
+            dimension "default"
+            applicationIdSuffix ".capstoneprod"
+            resValue "string", "app_name", "Capstone Prod"
+        }
+    }
     signingConfigs {
         debug {
             storeFile file('debug.keystore')

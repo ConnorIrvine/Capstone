@@ -73,6 +73,22 @@ npm install
    ```bash
    npx react-native run-android
    ```
+
+## Building a Release APK
+
+To generate a release APK for distribution:
+
+1. (First time only) Generate a signing key and configure it in `android/app/build.gradle` and `android/gradle.properties` (see React Native docs for details).
+2. Build the release APK:
+   ```bash
+   cd android
+   ./gradlew assembleRelease
+   ```
+3. The APK will be output to:
+   ```
+   android/app/build/outputs/apk/release/app-release.apk
+   ```
+4. You can now distribute or install this APK on any compatible Android device.
 4. Power on the Arduino Nano ESP32 with the pulse sensor
 5. Tap **Connect** in the app
 6. Place your finger on the pulse sensor — the PPG waveform appears in real time
