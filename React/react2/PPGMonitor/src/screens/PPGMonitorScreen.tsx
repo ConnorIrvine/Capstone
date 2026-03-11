@@ -7,6 +7,7 @@ import {
   Dimensions,
   StatusBar,
   Platform,
+  SafeAreaView,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import PPGChart from '../components/PPGChart';
@@ -106,7 +107,7 @@ const PPGMonitorScreen: React.FC = () => {
   }, [isConnected]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
 
       {/* Header */}
@@ -163,7 +164,7 @@ const PPGMonitorScreen: React.FC = () => {
             : 'Connect'}
         </Text>
       </TouchableOpacity>
-    </View>
+    </SafeAreaView>
   );
 };
 
