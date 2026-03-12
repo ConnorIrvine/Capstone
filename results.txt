@@ -1,0 +1,23 @@
+
+============================================================
+Reading from: serial_output.txt
+Simulating 100 seconds at 5.0x speed
+Sampling rate: 100 Hz
+HRV calculated every 10 seconds using 30-second windows
+============================================================
+
+Status Colors:
+  GREEN (✓)  - HRV improving
+  YELLOW (~) - Minor decrease (< 5ms)
+  RED (✗)    - Significant decrease (≥ 5ms)
+============================================================
+
+Collecting initial data (30 seconds)...
+
+
+Error: Could not find file 'serial_output.txt'
+Make sure serial_output.txt exists in the current directory.
+
+Simulation complete. Thank you!
+
+Results saved to: results.txt

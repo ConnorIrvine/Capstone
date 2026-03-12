@@ -317,8 +317,8 @@ def simulate_realtime_analysis(input_file, duration, sim_speed=10.0, sampling_ra
 
 def main():
     """Main entry point"""
-    INPUT_FILE = 'serial_output.txt'
-    OUTPUT_FILE = 'results.txt'
+    INPUT_FILE = r'C:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\archive_ppg_data\semi_normal_run.txt'
+    OUTPUT_FILE = 'resultsmarch12.txt'
     
     # Get user input (before redirecting output)
     duration, sim_speed, sampling_rate = get_user_input()
