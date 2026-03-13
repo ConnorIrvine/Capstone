@@ -294,15 +294,27 @@ def collect_and_analyze_from_file(file_path, duration, realtime=False):
 
             data_time = sample_count / SAMPLING_RATE
 
-            # HRV every 10 s after initial 30 s window
-            if (data_time >= WINDOW_SIZE_SEC
-                    and data_time - last_calculation_time >= UPDATE_INTERVAL_SEC
-                    and len(ppg_buffer) >= window_size_samples * 0.8):
+            # HRV every 10 s after initial 30 s window.
+            # Use a while loop so fast-mode (no sleep) catches up on all
+            # missed 10-second intervals in one outer iteration.
+            while (data_time >= WINDOW_SIZE_SEC
+                    and data_time - last_calculation_time >= UPDATE_INTERVAL_SEC):
+
+                next_calc_time = last_calculation_time + UPDATE_INTERVAL_SEC
+                last_calculation_time = next_calc_time  # always advance first
+
+                # Skip early intervals that don't yet have a full window
+                if next_calc_time < WINDOW_SIZE_SEC:
+                    continue
 
                 window_count += 1
-                last_calculation_time = data_time
 
-                ppg_window = np.array(ppg_buffer)
+                # Extract the exact 30-second slice from the collected data
+                window_end_sample = int(next_calc_time * SAMPLING_RATE)
+                window_start_sample = window_end_sample - window_size_samples
+                if window_start_sample < 0 or window_end_sample > len(all_ppg_data):
+                    continue
+                ppg_window = np.array(all_ppg_data[window_start_sample:window_end_sample])
 
                 if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=15):
                     print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
@@ -360,7 +372,7 @@ def get_user_input_for_testing():
     print("="*60)
 
     # File path – accept CLI arg or prompt
-    default_file = os.path.join(os.path.dirname(__file__), "archive_ppg_data/semi_normal_run.txt")
+    default_file = os.path.join(os.path.dirname(__file__), "ppg_dataset/semi_normal_run.txt")
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
     else:

@@ -3,4 +3,137 @@
 PPG NOISE TESTING HARNESS
 ============================================================
 
-PPG data file path [c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_data.txt]: 
+PPG data file path [c:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt]:   File contains ~18000 samples (~180s at 100 Hz)
+
+Duration in seconds to process [180]: 
+Realtime playback at 100 Hz? (y/n) [n for fastest]: 
+============================================================
+CONFIGURATION
+============================================================
+File:     c:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt
+Duration: 180s (3.0 min)
+Mode:     fast (no sleep)
+============================================================
+
+Start? (y/n): 
+============================================================
+Loading file: c:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt
+File loaded. Replaying in as fast as possible mode.
+Duration cap: 180 seconds
+HRV calculated every 10 s using 30-second windows
+============================================================
+
+Samples: 100 | Time: 1.0sSamples: 200 | Time: 2.0sSamples: 300 | Time: 3.0sSamples: 400 | Time: 4.0sSamples: 500 | Time: 5.0sSamples: 600 | Time: 6.0sSamples: 700 | Time: 7.0sSamples: 800 | Time: 8.0sSamples: 900 | Time: 9.0sSamples: 1000 | Time: 10.0sSamples: 1100 | Time: 11.0sSamples: 1200 | Time: 12.0sSamples: 1300 | Time: 13.0sSamples: 1400 | Time: 14.0sSamples: 1500 | Time: 15.0sSamples: 1600 | Time: 16.0sSamples: 1700 | Time: 17.0sSamples: 1800 | Time: 18.0sSamples: 1900 | Time: 19.0sSamples: 2000 | Time: 20.0sSamples: 2100 | Time: 21.0sSamples: 2200 | Time: 22.0sSamples: 2300 | Time: 23.0sSamples: 2400 | Time: 24.0sSamples: 2500 | Time: 25.0sSamples: 2600 | Time: 26.0sSamples: 2700 | Time: 27.0sSamples: 2800 | Time: 28.0sSamples: 2900 | Time: 29.0sSamples: 3000 | Time: 30.0sSamples: 3100 | Time: 31.0sSamples: 3200 | Time: 32.0sSamples: 3300 | Time: 33.0sSamples: 3400 | Time: 34.0sSamples: 3500 | Time: 35.0sSamples: 3600 | Time: 36.0sSamples: 3700 | Time: 37.0sSamples: 3800 | Time: 38.0sSamples: 3900 | Time: 39.0sSamples: 4000 | Time: 40.0sSamples: 4100 | Time: 41.0sSamples: 4200 | Time: 42.0sSamples: 4300 | Time: 43.0sSamples: 4400 | Time: 44.0sSamples: 4500 | Time: 45.0sSamples: 4600 | Time: 46.0sSamples: 4700 | Time: 47.0sSamples: 4800 | Time: 48.0sSamples: 4900 | Time: 49.0sSamples: 5000 | Time: 50.0sSamples: 5100 | Time: 51.0sSamples: 5200 | Time: 52.0sSamples: 5300 | Time: 53.0sSamples: 5400 | Time: 54.0sSamples: 5500 | Time: 55.0sSamples: 5600 | Time: 56.0sSamples: 5700 | Time: 57.0sSamples: 5800 | Time: 58.0sSamples: 5900 | Time: 59.0sSamples: 6000 | Time: 60.0sSamples: 6100 | Time: 61.0sSamples: 6200 | Time: 62.0sSamples: 6300 | Time: 63.0sSamples: 6400 | Time: 64.0sSamples: 6500 | Time: 65.0sSamples: 6600 | Time: 66.0sSamples: 6700 | Time: 67.0sSamples: 6800 | Time: 68.0sSamples: 6900 | Time: 69.0sSamples: 7000 | Time: 70.0sSamples: 7100 | Time: 71.0sSamples: 7200 | Time: 72.0sSamples: 7300 | Time: 73.0sSamples: 7400 | Time: 74.0sSamples: 7500 | Time: 75.0sSamples: 7600 | Time: 76.0sSamples: 7700 | Time: 77.0sSamples: 7800 | Time: 78.0sSamples: 7900 | Time: 79.0sSamples: 8000 | Time: 80.0sSamples: 8100 | Time: 81.0sSamples: 8200 | Time: 82.0sSamples: 8300 | Time: 83.0sSamples: 8400 | Time: 84.0sSamples: 8500 | Time: 85.0sSamples: 8600 | Time: 86.0sSamples: 8700 | Time: 87.0sSamples: 8800 | Time: 88.0sSamples: 8900 | Time: 89.0sSamples: 9000 | Time: 90.0sSamples: 9100 | Time: 91.0sSamples: 9200 | Time: 92.0sSamples: 9300 | Time: 93.0sSamples: 9400 | Time: 94.0sSamples: 9500 | Time: 95.0sSamples: 9600 | Time: 96.0sSamples: 9700 | Time: 97.0sSamples: 9800 | Time: 98.0sSamples: 9900 | Time: 99.0sSamples: 10000 | Time: 100.0sSamples: 10100 | Time: 101.0sSamples: 10200 | Time: 102.0sSamples: 10300 | Time: 103.0sSamples: 10400 | Time: 104.0sSamples: 10500 | Time: 105.0sSamples: 10600 | Time: 106.0sSamples: 10700 | Time: 107.0sSamples: 10800 | Time: 108.0sSamples: 10900 | Time: 109.0sSamples: 11000 | Time: 110.0sSamples: 11100 | Time: 111.0sSamples: 11200 | Time: 112.0sSamples: 11300 | Time: 113.0sSamples: 11400 | Time: 114.0sSamples: 11500 | Time: 115.0sSamples: 11600 | Time: 116.0sSamples: 11700 | Time: 117.0sSamples: 11800 | Time: 118.0sSamples: 11900 | Time: 119.0sSamples: 12000 | Time: 120.0sSamples: 12100 | Time: 121.0sSamples: 12200 | Time: 122.0sSamples: 12300 | Time: 123.0sSamples: 12400 | Time: 124.0sSamples: 12500 | Time: 125.0sSamples: 12600 | Time: 126.0sSamples: 12700 | Time: 127.0sSamples: 12800 | Time: 128.0sSamples: 12900 | Time: 129.0sSamples: 13000 | Time: 130.0sSamples: 13100 | Time: 131.0sSamples: 13200 | Time: 132.0sSamples: 13300 | Time: 133.0sSamples: 13400 | Time: 134.0sSamples: 13500 | Time: 135.0sSamples: 13600 | Time: 136.0sSamples: 13700 | Time: 137.0sSamples: 13800 | Time: 138.0sSamples: 13900 | Time: 139.0sSamples: 14000 | Time: 140.0sSamples: 14100 | Time: 141.0sSamples: 14200 | Time: 142.0sSamples: 14300 | Time: 143.0sSamples: 14400 | Time: 144.0sSamples: 14500 | Time: 145.0sSamples: 14600 | Time: 146.0sSamples: 14700 | Time: 147.0sSamples: 14800 | Time: 148.0sSamples: 14900 | Time: 149.0sSamples: 15000 | Time: 150.0sSamples: 15100 | Time: 151.0sSamples: 15200 | Time: 152.0sSamples: 15300 | Time: 153.0sSamples: 15400 | Time: 154.0sSamples: 15500 | Time: 155.0sSamples: 15600 | Time: 156.0sSamples: 15700 | Time: 157.0sSamples: 15800 | Time: 158.0sSamples: 15900 | Time: 159.0sSamples: 16000 | Time: 160.0sSamples: 16100 | Time: 161.0sSamples: 16200 | Time: 162.0sSamples: 16300 | Time: 163.0sSamples: 16400 | Time: 164.0sSamples: 16500 | Time: 165.0sSamples: 16600 | Time: 166.0sSamples: 16700 | Time: 167.0sSamples: 16800 | Time: 168.0sSamples: 16900 | Time: 169.0sSamples: 17000 | Time: 170.0sSamples: 17100 | Time: 171.0sSamples: 17200 | Time: 172.0sSamples: 17300 | Time: 173.0sSamples: 17400 | Time: 174.0sSamples: 17500 | Time: 175.0sSamples: 17600 | Time: 176.0sSamples: 17700 | Time: 177.0sSamples: 17800 | Time: 178.0sSamples: 17900 | Time: 179.0sSamples: 18000 | Time: 180.0s
+============================================================
+Window #1
+RMSSD: 30.45 ms | Change: N/A (first reading)
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #2
+RMSSD: 29.00 ms | Change: -1.45 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #3
+RMSSD: 26.78 ms | Change: -2.22 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #4
+RMSSD: 29.15 ms | Change: +2.38 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #5
+RMSSD: 31.75 ms | Change: +2.60 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #6
+RMSSD: 32.32 ms | Change: +0.56 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #7
+RMSSD: 37.12 ms | Change: +4.80 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #8
+RMSSD: 48.84 ms | Change: +11.73 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #9
+RMSSD: 53.39 ms | Change: +4.54 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #10
+RMSSD: 55.37 ms | Change: +1.98 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+============================================================
+Window #11
+RMSSD: 48.80 ms | Change: -6.57 ms
+Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
+============================================================
+
+============================================================
+Window #12
+RMSSD: 44.72 ms | Change: -4.08 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #13
+RMSSD: 43.30 ms | Change: -1.42 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #14
+RMSSD: 42.24 ms | Change: -1.06 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #15
+RMSSD: 40.48 ms | Change: -1.76 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+============================================================
+Window #16
+RMSSD: 37.62 ms | Change: -2.86 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+
+
+Playback complete!
+
+============================================================
+SESSION SUMMARY
+============================================================
+Total samples replayed: 18000
+Total HRV windows analyzed: 16
+Final RMSSD: 37.62 ms
+
+Status Distribution:
+  GREEN (Improving):        7 windows
+  YELLOW (Minor decrease):  8 windows
+  RED (Significant drop):   1 windows
+============================================================
+
+Done!
