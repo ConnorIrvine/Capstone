@@ -371,13 +371,46 @@ def get_user_input_for_testing():
     print("PPG NOISE TESTING HARNESS")
     print("="*60)
 
-    # File path – accept CLI arg or prompt
-    default_file = os.path.join(os.path.dirname(__file__), "ppg_dataset/semi_normal_run.txt")
-    if len(sys.argv) > 1:
-        file_path = sys.argv[1]
-    else:
-        prompted = input(f"\nPPG data file path [{default_file}]: ").strip()
-        file_path = prompted if prompted else default_file
+    # Gather file options
+
+
+    base_dir = os.path.dirname(__file__)
+    default_file_root = os.path.join(base_dir, "ppg_data.txt")
+    default_file_dataset = os.path.join(base_dir, "ppg_dataset", "ppg_data.txt")
+    output_dir = os.path.join(base_dir, "output_filter_testing")
+    old_dir = os.path.join(base_dir, "old")
+    ppg_dataset_dir = os.path.join(base_dir, "ppg_dataset")
+
+    # List files in output_filter_testing (exclude peaks/windows/results)
+    output_files = [f for f in os.listdir(output_dir) if f.endswith('.txt') and 'peaks' not in f and 'window' not in f and 'result' not in f]
+    # List files in old (exclude peaks/windows/results)
+    old_files = [f for f in os.listdir(old_dir) if f.endswith('.txt') and 'peaks' not in f and 'window' not in f and 'result' not in f]
+    # List files in ppg_dataset (all .txt)
+    ppg_dataset_files = [f for f in os.listdir(ppg_dataset_dir) if f.endswith('.txt')]
+
+    file_options = [(os.path.join(output_dir, f), f"output_filter_testing/{f}") for f in output_files]
+    file_options += [(os.path.join(old_dir, f), f"old/{f}") for f in old_files]
+    file_options += [(os.path.join(ppg_dataset_dir, f), f"ppg_dataset/{f}") for f in ppg_dataset_files]
+    # Always add the root ppg_data.txt as the default
+    if (default_file_root, "ppg_data.txt (default)") not in file_options:
+        file_options.append((default_file_root, "ppg_data.txt (default)"))
+
+    print("\nSelect a PPG data file:")
+    for idx, (_, label) in enumerate(file_options, 1):
+        print(f"  {idx}. {label}")
+    selection = input(f"Enter number [default {len(file_options)}]: ").strip()
+    try:
+        if selection:
+            sel_idx = int(selection) - 1
+            if sel_idx < 0 or sel_idx >= len(file_options):
+                print("Invalid selection.")
+                return None, None, None
+            file_path = file_options[sel_idx][0]
+        else:
+            file_path = file_options[-1][0]
+    except Exception:
+        print("Invalid input.")
+        return None, None, None
 
     if not os.path.isfile(file_path):
         print(f"File not found: {file_path}")
@@ -442,7 +475,7 @@ def main():
             sys.stdout = original_stdout
             sys.stderr = original_stderr
 
-    # Write output files (same names as program.py, but in output_filter_testing)
+    # Always write output files to output_filter_testing
     with open(os.path.join(output_dir, "ppg_window_data.txt"), "w") as f:
         for v in ppg_window_data_combined:
             f.write(f"{v}\n")

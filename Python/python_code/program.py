@@ -446,6 +446,25 @@ def collect_and_analyze_hrv(device_address, duration):
             
             # Stop after all due windows are computed
             if data_time >= duration:
+                if (
+                    data_time >= WINDOW_SIZE_SEC and
+                    duration - last_calculation_time >= UPDATE_INTERVAL_SEC / 2 and
+                    len(ppg_buffer) >= window_size_samples * 0.8
+                ):
+                    window_count += 1
+                    # Use the last buffer as the final window
+                    ppg_window = np.array(ppg_buffer)
+                    if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=15):
+                        print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
+                    else:
+                        current_rmssd = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
+                        if current_rmssd is not None:
+                            status = check_hrv_status(current_rmssd, previous_rmssd)
+                            status_counts[status] += 1
+                            display_feedback(status, current_rmssd, previous_rmssd, window_count)
+                            previous_rmssd = current_rmssd
+                        else:
+                            print(f"\n[Window #{window_count}] Unable to calculate HRV")
                 print("\n\nRecording complete!")
                 break
             
