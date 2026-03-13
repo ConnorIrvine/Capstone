@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 
 FS = 100  # Hz
-DATA_PATH = "ppg_window_data.txt"
-PEAKS_PATH = "ppg_peaks_data.txt"
+DATA_PATH = "output_filter_testing/ppg_window_data.txt"
+PEAKS_PATH = "output_filter_testing/ppg_peaks_data.txt"
 
 def load_ppg(path):
     with open(path, "r") as f:

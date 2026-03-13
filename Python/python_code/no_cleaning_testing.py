@@ -101,32 +101,17 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
 
     try:
         signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
+        hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
+        rmssd = hrv_metrics['HRV_RMSSD'].values[0]
 
-        # Detect raw peaks
         if 'PPG_Peaks' in signals:
             peaks_indices = np.where(signals['PPG_Peaks'] == 1)[0]
         else:
             peaks_indices = np.array([])
 
-        # Clean the peaks
-        cleaned_peaks = clean_peaks(ppg_window, peaks_indices)
-
-        # Create a new PPG_Peaks array with only cleaned peaks
-        ppg_peaks_clean = np.zeros(len(ppg_window), dtype=int)
-        for idx in cleaned_peaks:
-            if 0 <= idx < len(ppg_peaks_clean):
-                ppg_peaks_clean[idx] = 1
-
-        # Replace the peaks in the signals DataFrame
-        signals['PPG_Peaks'] = ppg_peaks_clean
-
-        # Now calculate HRV using only the cleaned peaks
-        hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
-        rmssd = hrv_metrics['HRV_RMSSD'].values[0]
-
         window_start_index = appended_samples - len(ppg_window)
-        cleaned_peaks = [i + window_start_index for i in cleaned_peaks]
-        return rmssd, cleaned_peaks
+        peaks_indices = [i + window_start_index for i in peaks_indices]
+        return rmssd, peaks_indices
     except Exception as e:
         print(f"\n[WARNING] HRV calculation failed: {e}")
         return None, []
