@@ -3,21 +3,21 @@
 PPG NOISE TESTING HARNESS
 ============================================================
 
-PPG data file path [c:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt]:   File contains ~18000 samples (~180s at 100 Hz)
+PPG data file path [c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt]:   File contains ~18000 samples (~180s at 100 Hz)
 
 Duration in seconds to process [180]: 
 Realtime playback at 100 Hz? (y/n) [n for fastest]: 
 ============================================================
 CONFIGURATION
 ============================================================
-File:     c:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt
+File:     c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt
 Duration: 180s (3.0 min)
 Mode:     fast (no sleep)
 ============================================================
 
 Start? (y/n): 
 ============================================================
-Loading file: c:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt
+Loading file: c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset/semi_normal_run.txt
 File loaded. Replaying in as fast as possible mode.
 Duration cap: 180 seconds
 HRV calculated every 10 s using 30-second windows

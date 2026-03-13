@@ -406,7 +406,9 @@ def get_user_input_for_testing():
 
 
 def main():
-    results_path = os.path.join(os.path.dirname(__file__), "results_noise_testing.txt")
+    output_dir = os.path.join(os.path.dirname(__file__), "output_filter_testing")
+    os.makedirs(output_dir, exist_ok=True)
+    results_path = os.path.join(output_dir, "results_noise_testing.txt")
 
     with open(results_path, "w", encoding="utf-8") as results_file:
         original_stdout = sys.stdout
@@ -440,14 +442,15 @@ def main():
             sys.stdout = original_stdout
             sys.stderr = original_stderr
 
-    # Write output files (same names as program.py)
-    with open(os.path.join(os.path.dirname(__file__), "ppg_window_data.txt"), "w") as f:
+    # Write output files (same names as program.py, but in output_filter_testing)
+    with open(os.path.join(output_dir, "ppg_window_data.txt"), "w") as f:
         for v in ppg_window_data_combined:
             f.write(f"{v}\n")
 
-    with open(os.path.join(os.path.dirname(__file__), "ppg_peaks_data.txt"), "w") as f:
+    with open(os.path.join(output_dir, "ppg_peaks_data.txt"), "w") as f:
         for idx in ppg_peaks_data_combined:
             f.write(f"{idx}\n")
+            
 
 
 if __name__ == "__main__":

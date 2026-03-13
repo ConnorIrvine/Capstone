@@ -1,3 +1,5 @@
+### Simple live viewer for PPG data streamed over Bluetooth from the NanoESP32_PPG firmware.
+
 import asyncio
 import contextlib
 import re
