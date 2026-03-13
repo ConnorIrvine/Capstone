@@ -1,3 +1,4 @@
+### STREAMS DATA LIKE SERIAL MONITOR FROM ARDUINO DEVICE
 import asyncio
 import time
 from bleak import BleakScanner, BleakClient

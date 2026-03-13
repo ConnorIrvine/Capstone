@@ -1,10 +1,11 @@
-# ppg_viewer.py
+# Simple PPG viewer for data stored in a text file. Allows scrolling through the data and adjusting the window size.
+# This is a local file for testing the plotting functionality with pre-recorded data, not the live Bluetooth stream.
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 
 FS = 100  # Hz
-DATA_PATH = "ppg_data.txt"
+DATA_PATH = "semi_normal_run.txt"
 
 def load_ppg(path):
     with open(path, "r") as f:

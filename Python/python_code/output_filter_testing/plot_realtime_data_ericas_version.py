@@ -1,14 +1,11 @@
-# Simple PPG viewer for data stored in a text file. Plots only accepted windows and peaks. 
-# Allows scrolling through the data and adjusting the window size.
-# This is a local file for testing the plotting functionality with pre-recorded data, not the live Bluetooth stream.
-
+# plot_realtime_data_all_ppg.py
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 
 FS = 100  # Hz
-DATA_PATH = "ppg_window_data.txt"
-PEAKS_PATH = "ppg_peaks_data.txt"
+DATA_PATH = "output_filter_testing/ppg_window_data.txt"
+PEAKS_PATH = "output_filter_testing/ppg_peaks_data.txt"
 
 def load_ppg(path):
     with open(path, "r") as f:

@@ -1,0 +1,32 @@
+
+============================================================
+Reading from: C:\Users\gur15\Documents\Capstone\Capstone\Python\python_code\archive_ppg_data\semi_normal_run.txt
+Simulating 100 seconds at 1.0x speed
+Sampling rate: 100 Hz
+HRV calculated every 10 seconds using 30-second windows
+============================================================
+
+Status Colors:
+  GREEN (✓)  - HRV improving
+  YELLOW (~) - Minor decrease (< 5ms)
+  RED (✗)    - Significant decrease (≥ 5ms)
+============================================================
+
+Collecting initial data (30 seconds)...
+
+
+============================================================
+SESSION SUMMARY
+============================================================
+Total samples collected: 0
+Total HRV windows analyzed: 0
+
+Status Distribution:
+  GREEN (Improving):        0 windows
+  YELLOW (Minor decrease):  0 windows
+  RED (Significant drop):   0 windows
+============================================================
+
+Simulation complete. Thank you!
+
+Results saved to: resultsmarch12.txt
