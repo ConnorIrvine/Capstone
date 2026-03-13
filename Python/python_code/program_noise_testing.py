@@ -360,7 +360,7 @@ def get_user_input_for_testing():
     print("="*60)
 
     # File path – accept CLI arg or prompt
-    default_file = os.path.join(os.path.dirname(__file__), "ppg_data.txt")
+    default_file = os.path.join(os.path.dirname(__file__), "archive_ppg_data/semi_normal_run.txt")
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
     else:
