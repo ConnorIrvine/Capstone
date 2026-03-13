@@ -1,3 +1,48 @@
+def clean_peaks(ppg_window, peak_indices, rising_window=5, min_distance=20):
+    """
+    Clean peaks by first removing those on rising edges, then removing close peaks (keep largest).
+    Args:
+        ppg_window: The PPG signal (numpy array or list)
+        peak_indices: List/array of candidate peak indices (relative to ppg_window)
+        rising_window: Number of samples to check after the peak for a rising edge
+        min_distance: Minimum number of samples between peaks
+    Returns:
+        Cleaned list of peak indices
+    """
+    # Initial cleaning: remove peaks on rising edges
+    cleaned = initial_cleaning(ppg_window, peak_indices, rising_window)
+
+    # Remove close peaks, keeping the largest in each group
+    i = 0
+    while i < len(cleaned) - 1:
+        if cleaned[i+1] - cleaned[i] < min_distance:
+            if ppg_window[cleaned[i]] >= ppg_window[cleaned[i+1]]:
+                cleaned.pop(i+1)  # remove next peak
+            else:
+                cleaned.pop(i)    # remove current peak
+        else:
+            i += 1
+    return cleaned
+
+def initial_cleaning(ppg_window, peak_indices, rising_window=5):
+    """
+    Remove peaks where a long string of increasing samples follows the peak.
+    Args:
+        ppg_window: The PPG signal (numpy array or list)
+        peak_indices: List/array of candidate peak indices (relative to ppg_window)
+        rising_window: Number of samples to check after the peak for a rising edge
+    Returns:
+        Cleaned list of peak indices
+    """
+    cleaned = []
+    for idx in peak_indices:
+        # Check if the next rising_window samples are strictly increasing
+        end_idx = min(idx + rising_window + 1, len(ppg_window))
+        after = ppg_window[idx:end_idx]
+        if len(after) > 1 and all(after[i] < after[i+1] for i in range(len(after)-1)):
+            continue  # skip this peak, it's on a rising edge
+        cleaned.append(idx)
+    return cleaned
 import os
 import sys
 import asyncio
@@ -135,14 +180,24 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         else:
             peaks_indices = np.array([])
 
+        # Clean the peaks
+        cleaned_peaks = clean_peaks(ppg_window, list(peaks_indices))
+
         # Offset peaks by absolute index of window start
         window_start_index = appended_samples - len(ppg_window)
-        peaks_indices = [i + window_start_index for i in peaks_indices]
-        
-        # Return both RMSSD and the global peak indices for overlap filtering
+        cleaned_peaks_global = [i + window_start_index for i in cleaned_peaks]
+
+        # Create a new PPG_Peaks array with only cleaned peaks (optional, for HRV calc)
+        ppg_peaks_clean = np.zeros(len(ppg_window), dtype=int)
+        for idx in cleaned_peaks:
+            if 0 <= idx < len(ppg_peaks_clean):
+                ppg_peaks_clean[idx] = 1
+        signals['PPG_Peaks'] = ppg_peaks_clean
+
+        # Return both RMSSD and the global cleaned peak indices for overlap filtering
         hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
         rmssd = hrv_metrics['HRV_RMSSD'].values[0]
-        return rmssd, peaks_indices
+        return rmssd, cleaned_peaks_global
     except Exception as e:
         print(f"\n[WARNING] HRV calculation failed: {e}")
         return None, []
@@ -333,24 +388,34 @@ def collect_and_analyze_hrv(device_address, duration):
     data_queue = queue_module.Queue()
     stop_event = threading.Event()
     connected_event = threading.Event()
-    
+
+    # Ensure global data containers are defined and initialized
+    global all_ppg_data, ppg_window_data_combined, ppg_peaks_data_combined, appended_samples
+    all_ppg_data = []  # Store all data
+    ppg_window_data_combined = []  # Store windowed data for analysis
+    ppg_peaks_data_combined = []  # Store peaks data for analysis
+    appended_samples = 0
+
+    # Rolling buffer for the current window
+    ppg_buffer = deque(maxlen=window_size_samples)
+
     ble_thread = threading.Thread(
         target=_ble_stream_thread,
         args=(device_address, data_queue, stop_event, connected_event),
         daemon=True
     )
-    
+
     try:
         print(f"\n{'='*60}")
         print(f"Connecting to BLE device {device_address}...")
         ble_thread.start()
-        
+
         # Wait for BLE connection
         if not connected_event.wait(timeout=30):
             print("Failed to connect to BLE device within 30 seconds.")
             stop_event.set()
             return
-        
+
         print(f"Connected to {device_address} via BLE")
         print(f"Recording for {duration} seconds...")
         print(f"HRV calculated every 10 seconds using 30-second windows")
@@ -361,8 +426,6 @@ def collect_and_analyze_hrv(device_address, duration):
         print("  RED (✗)    - Significant decrease (≥ 5ms)")
         print(f"{'='*60}")
         print("\nCollecting initial data (30 seconds)...\n")
-        global appended_samples
-        appended_samples = 0
 
         last_peak_sample = -1  # Track last sample index for which a peak was added
         last_calculation_time = 0.0

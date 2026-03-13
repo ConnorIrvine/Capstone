@@ -4,8 +4,67 @@ HRV MONITORING SYSTEM - Meditation Feedback
 ============================================================
 
 Scanning for BLE device 'NanoESP32_PPG'...
-  Found: NanoESP32_PPG (34:85:18:7B:75:D9) RSSI=-60
+  Found: NanoESP32_PPG (34:85:18:7B:75:D9) RSSI=-57
 
 Auto-selected device: NanoESP32_PPG (34:85:18:7B:75:D9)
 
 Enter recording duration in seconds (e.g., 180 for 3 minutes): 
+============================================================
+CONFIGURATION
+============================================================
+BLE Device: 34:85:18:7B:75:D9
+Duration: 50 seconds (0.8 minutes)
+============================================================
+
+Start recording? (y/n): 
+============================================================
+Connecting to BLE device 34:85:18:7B:75:D9...
+Connected to 34:85:18:7B:75:D9 via BLE
+Recording for 50 seconds...
+HRV calculated every 10 seconds using 30-second windows
+============================================================
+
+Status Colors:
+  GREEN (✓)  - HRV improving
+  YELLOW (~) - Minor decrease (< 5ms)
+  RED (✗)    - Significant decrease (≥ 5ms)
+============================================================
+
+Collecting initial data (30 seconds)...
+
+Samples collected: 100 | Time: 1.0sSamples collected: 200 | Time: 2.0sSamples collected: 300 | Time: 3.0sSamples collected: 400 | Time: 4.0sSamples collected: 500 | Time: 5.0sSamples collected: 600 | Time: 6.0sSamples collected: 700 | Time: 7.0sSamples collected: 800 | Time: 8.0sSamples collected: 900 | Time: 9.0sSamples collected: 1000 | Time: 10.0sSamples collected: 1100 | Time: 11.0sSamples collected: 1200 | Time: 12.0sSamples collected: 1300 | Time: 13.0sSamples collected: 1400 | Time: 14.0sSamples collected: 1500 | Time: 15.0sSamples collected: 1600 | Time: 16.0sSamples collected: 1700 | Time: 17.0sSamples collected: 1800 | Time: 18.0sSamples collected: 1900 | Time: 19.0sSamples collected: 2000 | Time: 20.0sSamples collected: 2100 | Time: 21.0sSamples collected: 2200 | Time: 22.0sSamples collected: 2300 | Time: 23.0sSamples collected: 2400 | Time: 24.0sSamples collected: 2500 | Time: 25.0sSamples collected: 2600 | Time: 26.0sSamples collected: 2700 | Time: 27.0sSamples collected: 2800 | Time: 28.0sSamples collected: 2900 | Time: 29.0sSamples collected: 3000 | Time: 30.0s
+============================================================
+Window #1
+RMSSD: 36.78 ms | Change: N/A (first reading)
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
+============================================================
+Samples collected: 3100 | Time: 31.0sSamples collected: 3200 | Time: 32.0sSamples collected: 3300 | Time: 33.0sSamples collected: 3400 | Time: 34.0sSamples collected: 3500 | Time: 35.0sSamples collected: 3600 | Time: 36.0sSamples collected: 3700 | Time: 37.0sSamples collected: 3800 | Time: 38.0sSamples collected: 3900 | Time: 39.0sSamples collected: 4000 | Time: 40.0s
+============================================================
+Window #2
+RMSSD: 38.65 ms | Change: +1.87 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+Samples collected: 4100 | Time: 41.0sSamples collected: 4200 | Time: 42.0sSamples collected: 4300 | Time: 43.0sSamples collected: 4400 | Time: 44.0sSamples collected: 4500 | Time: 45.0sSamples collected: 4600 | Time: 46.0sSamples collected: 4700 | Time: 47.0sSamples collected: 4800 | Time: 48.0sSamples collected: 4900 | Time: 49.0sSamples collected: 5000 | Time: 50.0s
+============================================================
+Window #3
+RMSSD: 50.96 ms | Change: +12.31 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+
+
+Recording complete!
+
+============================================================
+SESSION SUMMARY
+============================================================
+Total samples collected: 5004
+Total HRV windows analyzed: 3
+Final RMSSD: 50.96 ms
+
+Status Distribution:
+  GREEN (Improving):        2 windows
+  YELLOW (Minor decrease):  1 windows
+  RED (Significant drop):   0 windows
+============================================================
+
+Session complete. Thank you!
