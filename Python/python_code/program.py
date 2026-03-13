@@ -112,12 +112,11 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     Returns:
         RMSSD value in ms, or None if calculation fails
     """
-    if len(ppg_window) < sampling_rate * 10:  # Need at least 10 seconds
-        return None
+    if len(ppg_window) < sampling_rate * 10:
+        return None, []
 
     global appended_samples
 
-    # Add first 30 seconds, then only the newest 10 seconds each update
     step_samples = sampling_rate * 10
     if appended_samples == 0:
         new_samples = ppg_window
@@ -128,16 +127,9 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     appended_samples += len(new_samples)
 
     try:
-        # Process PPG signal to extract heart rate variability
         signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
-        
-        # Calculate HRV metrics
-        hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
-        
-        # Extract RMSSD (Root Mean Square of Successive Differences)
-        rmssd = hrv_metrics['HRV_RMSSD'].values[0]
 
-        # Deal with the peaks
+        # Detect raw peaks
         if 'PPG_Peaks' in signals:
             peaks_indices = np.where(signals['PPG_Peaks'] == 1)[0]
         else:
@@ -146,12 +138,14 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         # Offset peaks by absolute index of window start
         window_start_index = appended_samples - len(ppg_window)
         peaks_indices = [i + window_start_index for i in peaks_indices]
-        ppg_peaks_data_combined.extend(peaks_indices)
         
-        return rmssd
+        # Return both RMSSD and the global peak indices for overlap filtering
+        hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
+        rmssd = hrv_metrics['HRV_RMSSD'].values[0]
+        return rmssd, peaks_indices
     except Exception as e:
         print(f"\n[WARNING] HRV calculation failed: {e}")
-        return None
+        return None, []
 
 
 def check_hrv_status(current_rmssd, previous_rmssd):
@@ -367,28 +361,18 @@ def collect_and_analyze_hrv(device_address, duration):
         print("  RED (✗)    - Significant decrease (≥ 5ms)")
         print(f"{'='*60}")
         print("\nCollecting initial data (30 seconds)...\n")
-        
-        # Data collection
-        ppg_buffer = deque(maxlen=window_size_samples)  # Sliding window
-        global all_ppg_data
-        all_ppg_data = []  # Store all data
-        global ppg_window_data_combined
-        ppg_window_data_combined = []  # Store windowed data for analysis
-
-        global ppg_peaks_data_combined
-        ppg_peaks_data_combined = []  # Store peaks data for analysis
-
         global appended_samples
         appended_samples = 0
-        
+
+        last_peak_sample = -1  # Track last sample index for which a peak was added
         last_calculation_time = 0.0
         previous_rmssd = None
         window_count = 0
         sample_count = 0
-        
+
         # Track status counts for summary
         status_counts = {0: 0, 1: 0, 2: 0}
-        
+
         while True:
             # Read PPG data from BLE queue
             try:
@@ -397,28 +381,27 @@ def collect_and_analyze_hrv(device_address, duration):
                     ppg_buffer.append(ppg_value)
                     all_ppg_data.append(ppg_value)
                     sample_count += 1
-                    
                     # Print progress
                     if sample_count % 100 == 0:
                         data_time = sample_count / SAMPLING_RATE
                         print(f"Samples collected: {sample_count} | Time: {data_time:.1f}s", end='\r')
             except queue_module.Empty:
                 pass
-            
+
             # Small sleep to avoid busy-waiting
             time.sleep(0.01)
-            
+
             # Use data-derived time so windows align with samples
             data_time = sample_count / SAMPLING_RATE
-            
+
             # Perform HRV calculation every 10 seconds (after initial 30 seconds)
             if (data_time >= WINDOW_SIZE_SEC and 
                 data_time - last_calculation_time >= UPDATE_INTERVAL_SEC and
                 len(ppg_buffer) >= window_size_samples * 0.8):  # Allow 20% tolerance
-                
+
                 window_count += 1
                 last_calculation_time = data_time
-                
+
                 # Calculate HRV for current window
                 ppg_window = np.array(ppg_buffer)
 
@@ -427,23 +410,28 @@ def collect_and_analyze_hrv(device_address, duration):
                     print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
                     continue
 
-                current_rmssd = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
-                
+                current_rmssd, peaks_indices = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
+                # Only add peaks that are after the last_peak_sample
+                new_peaks = [i for i in peaks_indices if i > last_peak_sample]
+                if new_peaks:
+                    last_peak_sample = max(new_peaks)
+                ppg_peaks_data_combined.extend(new_peaks)
+
                 if current_rmssd is not None:
                     # Check HRV status
                     status = check_hrv_status(current_rmssd, previous_rmssd)
-                    
+
                     # Track status
                     status_counts[status] += 1
-                    
+
                     # Display feedback
                     display_feedback(status, current_rmssd, previous_rmssd, window_count)
-                    
+
                     # Update previous RMSSD
                     previous_rmssd = current_rmssd
                 else:
                     print(f"\n[Window #{window_count}] Unable to calculate HRV")
-            
+
             # Stop after all due windows are computed
             if data_time >= duration:
                 if (
@@ -457,7 +445,11 @@ def collect_and_analyze_hrv(device_address, duration):
                     if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=15):
                         print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
                     else:
-                        current_rmssd = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
+                        current_rmssd, peaks_indices = calculate_hrv_rmssd(ppg_window, SAMPLING_RATE)
+                        new_peaks = [i for i in peaks_indices if i > last_peak_sample]
+                        if new_peaks:
+                            last_peak_sample = max(new_peaks)
+                        ppg_peaks_data_combined.extend(new_peaks)
                         if current_rmssd is not None:
                             status = check_hrv_status(current_rmssd, previous_rmssd)
                             status_counts[status] += 1
@@ -467,16 +459,16 @@ def collect_and_analyze_hrv(device_address, duration):
                             print(f"\n[Window #{window_count}] Unable to calculate HRV")
                 print("\n\nRecording complete!")
                 break
-            
+
             # Check if BLE thread is still running
             if not ble_thread.is_alive():
                 print("\n\nBLE connection lost!")
                 break
-        
+
         # Stop BLE thread
         stop_event.set()
         ble_thread.join(timeout=5)
-        
+
         # Final summary
         print("\n" + "="*60)
         print("SESSION SUMMARY")
@@ -488,6 +480,18 @@ def collect_and_analyze_hrv(device_address, duration):
         print(f"\nStatus Distribution:")
         print(f"  GREEN (Improving):        {status_counts[0]} windows")
         print(f"  YELLOW (Minor decrease):  {status_counts[1]} windows")
+        print(f"  RED (Significant drop):   {status_counts[2]} windows")
+        print("="*60)
+
+    except KeyboardInterrupt:
+        print("\n\nRecording stopped by user")
+        stop_event.set()
+        ble_thread.join(timeout=5)
+
+    except Exception as e:
+        print(f"\nUnexpected error: {e}")
+        stop_event.set()
+        ble_thread.join(timeout=5)
         print(f"  RED (Significant drop):   {status_counts[2]} windows")
         print("="*60)
     
