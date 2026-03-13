@@ -4,26 +4,25 @@ PPG NOISE TESTING HARNESS
 ============================================================
 
 Select a PPG data file:
-  1. output_filter_testing/ppg_data.txt
-  2. ppg_dataset/ppg_data copy.txt
+  1. ppg_data.txt (default)
+  2. ppg_dataset/connors_heart.txt
   3. ppg_dataset/ppg_data.txt
   4. ppg_dataset/semi_normal_run.txt
-  5. ppg_data.txt (default)
-Enter number [default 5]:   File contains ~10000 samples (~100s at 100 Hz)
+Enter number [default 4]:   File contains ~10000 samples (~100s at 100 Hz)
 
 Duration in seconds to process [100]: 
 Realtime playback at 100 Hz? (y/n) [n for fastest]: 
 ============================================================
 CONFIGURATION
 ============================================================
-File:     c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset\ppg_data copy.txt
+File:     c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset\connors_heart.txt
 Duration: 100s (1.7 min)
 Mode:     fast (no sleep)
 ============================================================
 
-Start? (y/n): 
+Start? (y/n) [y]: 
 ============================================================
-Loading file: c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset\ppg_data copy.txt
+Loading file: c:\Users\conno\Documents\DEVELOPMENT\Capstone\Python\python_code\ppg_dataset\connors_heart.txt
 File loaded. Replaying in as fast as possible mode.
 Duration cap: 100 seconds
 HRV calculated every 10 s using 30-second windows

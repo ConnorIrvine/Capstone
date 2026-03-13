@@ -1,3 +1,59 @@
+# ---------------------------------------------------------------------------
+# Peak cleaning utility
+# ---------------------------------------------------------------------------
+def clean_peaks(ppg_window, peak_indices, min_distance=30):
+    """
+    Remove peaks that are too close, not local maxima, or are at local minima.
+    Args:
+        ppg_window: The PPG signal (numpy array or list)
+        peak_indices: List/array of candidate peak indices (relative to ppg_window)
+        min_distance: Minimum number of samples between peaks
+    Returns:
+        Cleaned list of peak indices
+    """
+    if len(peak_indices) == 0:
+        return []
+    # Sort and remove peaks that are too close to each other (keep the higher one)
+    peak_indices = sorted(peak_indices)
+    cleaned = []
+    for idx in peak_indices:
+        if cleaned and idx - cleaned[-1] < min_distance:
+            # Keep the higher peak if too close
+            if ppg_window[idx] > ppg_window[cleaned[-1]]:
+                cleaned[-1] = idx
+            continue
+        cleaned.append(idx)
+    # First pass: keep only true local maxima
+    final_peaks = []
+    for idx in cleaned:
+        if idx <= 0 or idx >= len(ppg_window)-1:
+            continue  # skip edges
+        val = ppg_window[idx]
+        if val > ppg_window[idx-1] and val > ppg_window[idx+1]:
+            final_peaks.append(idx)
+    # Second pass: recover missing peaks in large gaps
+    if len(final_peaks) > 1:
+        dists = np.diff(final_peaks)
+        median_dist = np.median(dists)
+        new_peaks = []
+        for i in range(len(final_peaks)-1):
+            gap = final_peaks[i+1] - final_peaks[i]
+            if gap > 1.5 * median_dist:
+                # Search for a local max in the gap
+                left = final_peaks[i]+1
+                right = final_peaks[i+1]
+                region = ppg_window[left:right]
+                if len(region) > 2:
+                    rel_idx = np.argmax(region)
+                    true_idx = left + rel_idx
+                    # Only add if not already present and is a local max
+                    if (true_idx not in final_peaks and
+                        true_idx > 0 and true_idx < len(ppg_window)-1 and
+                        ppg_window[true_idx] > ppg_window[true_idx-1] and ppg_window[true_idx] > ppg_window[true_idx+1]):
+                        new_peaks.append(true_idx)
+        final_peaks.extend(new_peaks)
+        final_peaks = sorted(set(final_peaks))
+    return final_peaks
 # program_noise_testing.py
 #
 # Noise-testing harness for program.py.
@@ -69,9 +125,13 @@ def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
         else:
             peaks_indices = np.array([])
 
+
         window_start_index = appended_samples - len(ppg_window)
-        peaks_indices = [i + window_start_index for i in peaks_indices]
-        ppg_peaks_data_combined.extend(peaks_indices)
+        # Clean peaks before extending
+        cleaned_peaks = clean_peaks(ppg_window, peaks_indices)
+        # Offset to absolute indices
+        cleaned_peaks = [i + window_start_index for i in cleaned_peaks]
+        ppg_peaks_data_combined.extend(cleaned_peaks)
 
         return rmssd
     except Exception as e:
@@ -382,18 +442,12 @@ def get_user_input_for_testing():
     ppg_dataset_dir = os.path.join(base_dir, "ppg_dataset")
 
     # List files in output_filter_testing (exclude peaks/windows/results)
-    output_files = [f for f in os.listdir(output_dir) if f.endswith('.txt') and 'peaks' not in f and 'window' not in f and 'result' not in f]
-    # List files in old (exclude peaks/windows/results)
-    old_files = [f for f in os.listdir(old_dir) if f.endswith('.txt') and 'peaks' not in f and 'window' not in f and 'result' not in f]
-    # List files in ppg_dataset (all .txt)
-    ppg_dataset_files = [f for f in os.listdir(ppg_dataset_dir) if f.endswith('.txt')]
 
-    file_options = [(os.path.join(output_dir, f), f"output_filter_testing/{f}") for f in output_files]
-    file_options += [(os.path.join(old_dir, f), f"old/{f}") for f in old_files]
-    file_options += [(os.path.join(ppg_dataset_dir, f), f"ppg_dataset/{f}") for f in ppg_dataset_files]
-    # Always add the root ppg_data.txt as the default
-    if (default_file_root, "ppg_data.txt (default)") not in file_options:
-        file_options.append((default_file_root, "ppg_data.txt (default)"))
+    # Allow selection of ppg_data.txt in root and any .txt in ppg_dataset
+    file_options = [(default_file_root, "ppg_data.txt (default)")]
+    ppg_dataset_files = [f for f in os.listdir(ppg_dataset_dir) if f.endswith('.txt')]
+    for f in ppg_dataset_files:
+        file_options.append((os.path.join(ppg_dataset_dir, f), f"ppg_dataset/{f}"))
 
     print("\nSelect a PPG data file:")
     for idx, (_, label) in enumerate(file_options, 1):
@@ -416,10 +470,9 @@ def get_user_input_for_testing():
         print(f"File not found: {file_path}")
         return None, None, None
 
-    # Count samples to suggest a sensible default duration
     with open(file_path) as f:
         num_samples = sum(1 for l in f if l.strip())
-    suggested_duration = num_samples // 100  # assuming 100 Hz
+    suggested_duration = num_samples // 100
     print(f"  File contains ~{num_samples} samples (~{suggested_duration}s at 100 Hz)")
 
     duration_input = input(f"\nDuration in seconds to process [{suggested_duration}]: ").strip()
@@ -463,8 +516,8 @@ def main():
             print(f"Mode:     {'real-time' if realtime else 'fast (no sleep)'}")
             print(f"{'='*60}")
 
-            confirm = input("\nStart? (y/n): ").strip().lower()
-            if confirm != 'y':
+            confirm = input("\nStart? (y/n) [y]: ").strip().lower()
+            if confirm and confirm != 'y':
                 print("Cancelled.")
                 return
 
@@ -483,7 +536,13 @@ def main():
     with open(os.path.join(output_dir, "ppg_peaks_data.txt"), "w") as f:
         for idx in ppg_peaks_data_combined:
             f.write(f"{idx}\n")
-            
+
+    # Always output a copy of the input ppg_data.txt to output_filter_testing
+    if os.path.basename(file_path) == "ppg_data.txt":
+        out_path = os.path.join(output_dir, "ppg_data.txt")
+        with open(file_path, "r") as fin, open(out_path, "w") as fout:
+            for line in fin:
+                fout.write(line)
 
 
 if __name__ == "__main__":
