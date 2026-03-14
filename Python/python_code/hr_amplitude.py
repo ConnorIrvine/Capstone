@@ -576,9 +576,10 @@ def collect_and_analyze_amplitude(device_address, duration):
         plt.show()
 
         # ── Post-session PPG + peaks viewer ──
-        show_ppg_peaks_viewer(np.array(all_ppg_data, dtype=float),
-                              sorted(all_detected_peaks),
-                              SAMPLING_RATE)
+        # Deduplicate near-duplicate peaks caused by sliding buffer re-detection
+        ppg_arr = np.array(all_ppg_data, dtype=float)
+        deduped_peaks = clean_peaks(ppg_arr, sorted(all_detected_peaks))
+        show_ppg_peaks_viewer(ppg_arr, deduped_peaks, SAMPLING_RATE)
 
     except KeyboardInterrupt:
         print("\n\nStopped by user")
