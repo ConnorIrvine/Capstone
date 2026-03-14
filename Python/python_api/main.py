@@ -23,6 +23,52 @@ app = FastAPI(
     version="1.0.0"
 )
 
+def clean_peaks(ppg_window, peak_indices, rising_window=5, min_distance=20):
+    """
+    Clean peaks by first removing those on rising edges, then removing close peaks (keep largest).
+    Args:
+        ppg_window: The PPG signal (numpy array or list)
+        peak_indices: List/array of candidate peak indices (relative to ppg_window)
+        rising_window: Number of samples to check after the peak for a rising edge
+        min_distance: Minimum number of samples between peaks
+    Returns:
+        Cleaned list of peak indices
+    """
+    # Initial cleaning: remove peaks on rising edges
+    cleaned = initial_cleaning(ppg_window, peak_indices, rising_window)
+
+    # Remove close peaks, keeping the largest in each group
+    i = 0
+    while i < len(cleaned) - 1:
+        if cleaned[i+1] - cleaned[i] < min_distance:
+            if ppg_window[cleaned[i]] >= ppg_window[cleaned[i+1]]:
+                cleaned.pop(i+1)  # remove next peak
+            else:
+                cleaned.pop(i)    # remove current peak
+        else:
+            i += 1
+    return cleaned
+
+
+def initial_cleaning(ppg_window, peak_indices, rising_window=5):
+    """
+    Remove peaks where a long string of increasing samples follows the peak.
+    Args:
+        ppg_window: The PPG signal (numpy array or list)
+        peak_indices: List/array of candidate peak indices (relative to ppg_window)
+        rising_window: Number of samples to check after the peak for a rising edge
+    Returns:
+        Cleaned list of peak indices
+    """
+    cleaned = []
+    for idx in peak_indices:
+        # Check if the next rising_window samples are strictly increasing
+        end_idx = min(idx + rising_window + 1, len(ppg_window))
+        after = ppg_window[idx:end_idx]
+        if len(after) > 1 and all(after[i] < after[i+1] for i in range(len(after)-1)):
+            continue  # skip this peak, it's on a rising edge
+        cleaned.append(idx)
+    return cleaned
 
 def _get_allowed_origins() -> List[str]:
     raw = os.getenv("HRV_ALLOWED_ORIGINS", "*").strip()
@@ -174,8 +220,7 @@ def analyze_window_quality(
 
     return False, bad_segments
 
-
-def calculate_hrv_rmssd(ppg_window: np.ndarray, sampling_rate: float) -> Optional[float]:
+def calculate_hrv_rmssd(ppg_window, sampling_rate=100):
     """
     Calculate HRV using RMSSD (Root Mean Square of Successive Differences) from PPG signal.
 
@@ -187,11 +232,32 @@ def calculate_hrv_rmssd(ppg_window: np.ndarray, sampling_rate: float) -> Optiona
         RMSSD value in milliseconds, or None if calculation fails
     """
     try:
-        signals, _ = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
+        signals, info = nk.ppg_process(ppg_window, sampling_rate=sampling_rate)
+
+        # Detect raw peaks
+        if 'PPG_Peaks' in signals:
+            peaks_indices = np.where(signals['PPG_Peaks'] == 1)[0]
+        else:
+            peaks_indices = np.array([])
+
+        # Clean the peaks
+        cleaned_peaks = clean_peaks(ppg_window, peaks_indices)
+
+        # Create a new PPG_Peaks array with only cleaned peaks
+        ppg_peaks_clean = np.zeros(len(ppg_window), dtype=int)
+        for idx in cleaned_peaks:
+            if 0 <= idx < len(ppg_peaks_clean):
+                ppg_peaks_clean[idx] = 1
+
+        # Replace the peaks in the signals DataFrame
+        signals['PPG_Peaks'] = ppg_peaks_clean
+
+        # Now calculate HRV using only the cleaned peaks
         hrv_metrics = nk.ppg_intervalrelated(signals, sampling_rate=sampling_rate)
-        rmssd = hrv_metrics["HRV_RMSSD"].values[0]
+        rmssd = hrv_metrics['HRV_RMSSD'].values[0]
+
         return float(rmssd)
-    except Exception:
+    except Exception as e:
         return None
 
 
