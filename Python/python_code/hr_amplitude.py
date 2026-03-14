@@ -28,6 +28,42 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
+
+# ─────────────────────────────────────────────────────────────
+# Peak cleaning (from program.py)
+# ─────────────────────────────────────────────────────────────
+
+def clean_peaks(ppg_window, peak_indices, rising_window=5, min_distance=20):
+    """
+    Clean peaks by first removing those on rising edges, then removing close peaks (keep largest).
+    """
+    cleaned = initial_cleaning(ppg_window, peak_indices, rising_window)
+    i = 0
+    while i < len(cleaned) - 1:
+        if cleaned[i+1] - cleaned[i] < min_distance:
+            if ppg_window[cleaned[i]] >= ppg_window[cleaned[i+1]]:
+                cleaned.pop(i+1)
+            else:
+                cleaned.pop(i)
+        else:
+            i += 1
+    return cleaned
+
+
+def initial_cleaning(ppg_window, peak_indices, rising_window=5):
+    """
+    Remove peaks where a long string of increasing samples follows the peak.
+    """
+    cleaned = []
+    for idx in peak_indices:
+        end_idx = min(idx + rising_window + 1, len(ppg_window))
+        after = ppg_window[idx:end_idx]
+        if len(after) > 1 and all(after[i] < after[i+1] for i in range(len(after)-1)):
+            continue
+        cleaned.append(idx)
+    return cleaned
+
+
 # BLE settings
 BLE_DEVICE_NAME = "NanoESP32_PPG"
 TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
@@ -433,20 +469,25 @@ def collect_and_analyze_amplitude(device_address, duration):
                 # Global index of buffer[0]
                 buffer_start = sample_count - len(buf_array)
 
-                # ── Heart rate from PPG peaks ──
+                # ── Heart rate from PPG peaks (neurokit2 + cleaning) ──
                 try:
-                    ppg_peaks, _ = find_peaks(
-                        buf_array,
-                        distance=int(SAMPLING_RATE * 0.4),   # min ~150 bpm
-                        prominence=np.std(buf_array) * 0.3
-                    )
+                    signals, info = nk.ppg_process(buf_array,
+                                                   sampling_rate=SAMPLING_RATE)
+                    if 'PPG_Peaks' in signals:
+                        raw_peaks = list(
+                            np.where(signals['PPG_Peaks'] == 1)[0])
+                    else:
+                        raw_peaks = []
+
+                    cleaned = clean_peaks(buf_array, raw_peaks)
+
                     # Store detected peaks as global indices
-                    for pk in ppg_peaks:
+                    for pk in cleaned:
                         all_detected_peaks.add(buffer_start + pk)
 
-                    if len(ppg_peaks) >= 2:
-                        ibi = np.diff(ppg_peaks) / SAMPLING_RATE  # seconds
-                        ibi = ibi[(ibi > 0.3) & (ibi < 2.0)]     # 30-200 bpm
+                    if len(cleaned) >= 2:
+                        ibi = np.diff(cleaned) / SAMPLING_RATE  # seconds
+                        ibi = ibi[(ibi > 0.3) & (ibi < 2.0)]   # 30-200 bpm
                         if len(ibi) > 0:
                             avg_hr = 60.0 / np.mean(ibi)
                             t_hr = sample_count / SAMPLING_RATE
