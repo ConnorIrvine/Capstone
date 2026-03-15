@@ -15,14 +15,14 @@ Realtime playback at 100 Hz? (y/n) [n for fastest]:
 ============================================================
 CONFIGURATION
 ============================================================
-File:     c:\Users\conno\Documents\Dev\Capstone\Python\python_code\ppg_dataset\connors_heart.txt
+File:     c:\Users\erica\Documents\Development\Capstone\Python\python_code\ppg_dataset\connors_heart.txt
 Duration: 100s (1.7 min)
 Mode:     fast (no sleep)
 ============================================================
 
 Start? (y/n) [y]: 
 ============================================================
-Loading file: c:\Users\conno\Documents\Dev\Capstone\Python\python_code\ppg_dataset\connors_heart.txt
+Loading file: c:\Users\erica\Documents\Development\Capstone\Python\python_code\ppg_dataset\connors_heart.txt
 File loaded. Replaying in as fast as possible mode.
 Duration cap: 100 seconds
 HRV calculated every 10 s using 30-second windows
