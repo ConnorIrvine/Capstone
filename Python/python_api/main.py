@@ -391,7 +391,6 @@ class RealTimeHRVAmplitude:
                     amplitude = self.last_peak_hr - hr[idx]
                     if amplitude > 1.0:
                         self.amplitudes.append(amplitude)
-                        smooth_amp = float(np.mean(self.amplitudes[-3:]))
 
                         peak_t = hr_times[self.last_peak_idx]
                         trough_t = hr_times[idx]
@@ -403,7 +402,7 @@ class RealTimeHRVAmplitude:
                             "trough_idx": idx,
                             "peak_hr": float(self.last_peak_hr),
                             "trough_hr": float(hr[idx]),
-                            "amplitude": smooth_amp,
+                            "amplitude": float(amplitude),
                             "breathing_rate_bpm": breathing_rate,
                         })
                     self.last_peak_hr = None
