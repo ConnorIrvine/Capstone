@@ -426,6 +426,7 @@ class AmplitudeSession:
         self.bpm_values: List[float] = []
         self.sample_count = 0
         self.last_process_count = 0
+        self.last_hr_sent_count = 0
         self.is_paused = False
         self.bad_start_time: Optional[float] = None
         self.peak_state_reset = False
@@ -444,6 +445,11 @@ class AmplitudeDataRequest(BaseModel):
     samples: List[float] = Field(..., min_length=1)
 
 
+class HRDataPoint(BaseModel):
+    time_s: float
+    hr_bpm: float
+
+
 class AmplitudeEvent(BaseModel):
     peak_hr: float
     trough_hr: float
@@ -451,12 +457,14 @@ class AmplitudeEvent(BaseModel):
     breathing_rate_bpm: float
     feedback_color: str
     time_s: float
+    peak_time_s: float
 
 
 class AmplitudeDataResponse(BaseModel):
     hr: Optional[float] = None
     signal_quality: str
     events: List[AmplitudeEvent] = []
+    hr_data: List[HRDataPoint] = []
     sample_count: int
 
 
@@ -490,6 +498,7 @@ async def amplitude_data(request: AmplitudeDataRequest):
         raise HTTPException(status_code=404, detail="Session not found")
 
     new_events: List[AmplitudeEvent] = []
+    hr_before = len(session.hr_values)
 
     for val in request.samples:
         session.ppg_buffer.append(val)
@@ -568,6 +577,7 @@ async def amplitude_data(request: AmplitudeDataRequest):
                 else:
                     color = "red"
 
+                peak_t = session.hr_times[item["peak_idx"]]
                 new_events.append(AmplitudeEvent(
                     peak_hr=item["peak_hr"],
                     trough_hr=item["trough_hr"],
@@ -575,14 +585,22 @@ async def amplitude_data(request: AmplitudeDataRequest):
                     breathing_rate_bpm=item["breathing_rate_bpm"],
                     feedback_color=color,
                     time_s=trough_t,
+                    peak_time_s=peak_t,
                 ))
         except Exception:
             pass
+
+    # Collect new HR data points added during this call
+    new_hr_data = [
+        HRDataPoint(time_s=session.hr_times[i], hr_bpm=session.hr_values[i])
+        for i in range(hr_before, len(session.hr_values))
+    ]
 
     return AmplitudeDataResponse(
         hr=session.hr_values[-1] if session.hr_values else None,
         signal_quality="PAUSED (bad signal)" if session.is_paused else "ACTIVE",
         events=new_events,
+        hr_data=new_hr_data,
         sample_count=session.sample_count,
     )
 

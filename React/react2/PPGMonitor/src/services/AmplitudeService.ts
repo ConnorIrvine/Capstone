@@ -5,12 +5,19 @@ export interface AmplitudeEvent {
   breathing_rate_bpm: number;
   feedback_color: 'green' | 'yellow' | 'red';
   time_s: number;
+  peak_time_s: number;
+}
+
+export interface HRDataPoint {
+  time_s: number;
+  hr_bpm: number;
 }
 
 export interface AmplitudeDataResult {
   hr: number | null;
   signal_quality: string;
   events: AmplitudeEvent[];
+  hr_data: HRDataPoint[];
   sample_count: number;
   timestamp: number;
 }
@@ -64,6 +71,7 @@ export async function amplitudeSendData(
     hr: data.hr,
     signal_quality: data.signal_quality,
     events: data.events ?? [],
+    hr_data: data.hr_data ?? [],
     sample_count: data.sample_count,
     timestamp,
   };

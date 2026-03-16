@@ -19,6 +19,7 @@ import {
   AmplitudeStopResult,
 } from '../services/AmplitudeService';
 import PPGChart from '../components/PPGChart';
+import AmplitudeCharts, {AmplitudeChartsData} from '../components/AmplitudeCharts';
 
 const CHART_WINDOW = 600;
 const SEND_INTERVAL_MS = 1000; // send data every 1 second
@@ -50,6 +51,9 @@ const AmplitudeScreen: React.FC = () => {
   // Pending samples buffer — accumulated between sends
   const pendingSamplesRef = useRef<number[]>([]);
   const sessionIdRef = useRef<string | null>(null);
+
+  // Chart data ref for AmplitudeCharts
+  const chartDataRef = useRef<AmplitudeChartsData>({hrSeries: [], events: []});
 
   // Rate tracking
   const rateCounterRef = useRef(0);
@@ -124,7 +128,18 @@ const AmplitudeScreen: React.FC = () => {
         setCurrentHR(result.hr);
       }
       setSignalQuality(result.signal_quality);
+
+      // Accumulate HR data for charts
+      if (result.hr_data && result.hr_data.length > 0) {
+        const cd = chartDataRef.current;
+        cd.hrSeries = cd.hrSeries.concat(result.hr_data);
+      }
+
       if (result.events.length > 0) {
+        // Accumulate events for charts
+        const cd = chartDataRef.current;
+        cd.events = cd.events.concat(result.events);
+
         const latest = result.events[result.events.length - 1];
         setLatestAmplitude(latest.amplitude);
         setLatestColor(latest.feedback_color);
@@ -204,6 +219,7 @@ const AmplitudeScreen: React.FC = () => {
     // Reset state
     dataRef.current = [];
     pendingSamplesRef.current = [];
+    chartDataRef.current = {hrSeries: [], events: []};
     statsRef.current = {totalSamples: 0, rate: 0, lastRxAge: 0};
     rateCounterRef.current = 0;
     rateWindowStartRef.current = Date.now();
@@ -264,13 +280,22 @@ const AmplitudeScreen: React.FC = () => {
           />
         </View>
 
-        {/* Chart */}
+        {/* PPG Chart */}
         <View style={styles.chartContainer}>
           <PPGChart
             width={screenWidth - 16}
             height={chartHeight}
             dataRef={dataRef}
             statsRef={statsRef}
+          />
+        </View>
+
+        {/* HR / Amplitude / Breathing Rate Charts */}
+        <View style={styles.chartContainer}>
+          <AmplitudeCharts
+            width={screenWidth - 16}
+            height={360}
+            dataRef={chartDataRef}
           />
         </View>
 
