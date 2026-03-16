@@ -24,9 +24,10 @@ const MAX_HISTORY = 10;
 const RATE_WINDOW_SEC = 5;
 
 const HRVScreen: React.FC = () => {
-  const [status, setStatus] = useState('Idle');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [status, setStatus] = useState(bleService.connected ? 'Connected. Streaming...' : 'Idle');
+  const [isConnected, setIsConnected] = useState(bleService.connected);
+  const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
   const [apiUrl, setApiUrl] = useState('http://192.168.137.1:8000');
   const [hrvHistory, setHrvHistory] = useState<HRVResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -73,6 +74,7 @@ const HRVScreen: React.FC = () => {
 
   // Handle incoming PPG data
   const handleData = useCallback((samples: number[]) => {
+    if (!isRecordingRef.current) return;
     // Update chart buffer
     const data = dataRef.current;
     for (let i = 0; i < samples.length; i++) {
@@ -134,9 +136,6 @@ const HRVScreen: React.FC = () => {
       setStatus(newStatus);
       const connected = newStatus.includes('Streaming');
       setIsConnected(connected);
-      if (!connected) {
-        setIsConnecting(false);
-      }
     });
 
     // Sync initial connection state
@@ -188,30 +187,25 @@ const HRVScreen: React.FC = () => {
     };
   }, [isConnected, sendToAPI]);
 
-  const handleConnect = useCallback(async () => {
-    if (isConnected) {
-      await bleService.disconnect();
-      setIsConnected(false);
-      return;
+  const handleRecording = useCallback(() => {
+    if (isRecording) {
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      setStatus('Stopped');
+    } else {
+      dataRef.current = [];
+      rollingBufferRef.current = [];
+      sampleCountRef.current = 0;
+      statsRef.current = {totalSamples: 0, rate: 0, lastRxAge: 0};
+      rateCounterRef.current = 0;
+      rateWindowStartRef.current = Date.now();
+      setHrvHistory([]);
+      setCollectedSeconds(0);
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      setStatus('Recording...');
     }
-
-    setIsConnecting(true);
-    // Reset data on new connection
-    dataRef.current = [];
-    rollingBufferRef.current = [];
-    sampleCountRef.current = 0;
-    statsRef.current = {totalSamples: 0, rate: 0, lastRxAge: 0};
-    rateCounterRef.current = 0;
-    rateWindowStartRef.current = Date.now();
-    setHrvHistory([]);
-    setCollectedSeconds(0);
-
-    try {
-      await bleService.scanAndConnect();
-    } catch (_error) {
-      setIsConnecting(false);
-    }
-  }, [isConnected]);
+  }, [isRecording]);
 
   const latestHRV = hrvHistory.find(h => h.success);
 
@@ -317,22 +311,18 @@ const HRVScreen: React.FC = () => {
           )}
         </View>
 
-        {/* Connect Button */}
+        {/* Record Button */}
         <TouchableOpacity
           style={[
             styles.button,
-            isConnected ? styles.buttonDisconnect : styles.buttonConnect,
-            isConnecting && styles.buttonDisabled,
+            isRecording ? styles.buttonStop : styles.buttonRecord,
+            !isConnected && styles.buttonDisabled,
           ]}
-          onPress={handleConnect}
-          disabled={isConnecting}
+          onPress={handleRecording}
+          disabled={!isConnected}
           activeOpacity={0.7}>
           <Text style={styles.buttonText}>
-            {isConnecting
-              ? 'Connecting...'
-              : isConnected
-              ? 'Disconnect'
-              : 'Connect'}
+            {isRecording ? 'Stop Recording' : 'Start Recording'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -504,14 +494,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonConnect: {
+  buttonRecord: {
     backgroundColor: '#00C853',
   },
-  buttonDisconnect: {
+  buttonStop: {
     backgroundColor: '#FF5252',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   buttonText: {
     fontSize: 18,

@@ -34,8 +34,9 @@ const FEEDBACK_COLORS: Record<string, string> = {
 
 const AmplitudeScreen: React.FC = () => {
   const [status, setStatus] = useState('Idle');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [isConnected, setIsConnected] = useState(bleService.connected);
+  const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
   const [apiUrl, setApiUrl] = useState('http://192.168.137.1:8000');
   const [pendingApiUrl, setPendingApiUrl] = useState(apiUrl);
   const [apiUrlError, setApiUrlError] = useState<string | null>(null);
@@ -110,6 +111,7 @@ const AmplitudeScreen: React.FC = () => {
 
   // Handle incoming PPG data
   const handleData = useCallback((samples: number[]) => {
+    if (!isRecordingRef.current) return;
     // Update chart buffer
     const data = dataRef.current;
     for (let i = 0; i < samples.length; i++) {
@@ -184,9 +186,6 @@ const AmplitudeScreen: React.FC = () => {
       setStatus(newStatus);
       const connected = newStatus.includes('Streaming');
       setIsConnected(connected);
-      if (!connected) {
-        setIsConnecting(false);
-      }
     });
 
     if (bleService.connected) {
@@ -200,9 +199,9 @@ const AmplitudeScreen: React.FC = () => {
     };
   }, [handleData]);
 
-  // Start/stop send timer based on connection + session
+  // Start/stop send timer based on recording state
   useEffect(() => {
-    if (isConnected && sessionIdRef.current) {
+    if (isRecording) {
       sendTimerRef.current = setInterval(() => {
         sendPending();
       }, SEND_INTERVAL_MS);
@@ -219,11 +218,11 @@ const AmplitudeScreen: React.FC = () => {
         sendTimerRef.current = null;
       }
     };
-  }, [isConnected, sendPending]);
+  }, [isRecording, sendPending]);
 
-  const handleConnect = useCallback(async () => {
-    if (isConnected) {
-      // Stop session first
+  const handleRecording = useCallback(async () => {
+    if (isRecording) {
+      // Stop session
       if (sessionIdRef.current) {
         try {
           const stopResult = await amplitudeStop(apiUrl, sessionIdRef.current);
@@ -233,18 +232,15 @@ const AmplitudeScreen: React.FC = () => {
         }
         sessionIdRef.current = null;
       }
-      await bleService.disconnect();
-      setIsConnected(false);
-      // Reset rate stats so PPG viewer stops counting
       statsRef.current = {totalSamples: statsRef.current.totalSamples, rate: 0, lastRxAge: 0};
       lastRxTimeRef.current = 0;
       rateCounterRef.current = 0;
+      isRecordingRef.current = false;
+      setIsRecording(false);
       return;
     }
 
-    setIsConnecting(true);
     setSummary(null);
-    // Reset state
     dataRef.current = [];
     pendingSamplesRef.current = [];
     chartDataRef.current = {hrSeries: [], events: []};
@@ -259,19 +255,15 @@ const AmplitudeScreen: React.FC = () => {
     setEventHistory([]);
 
     try {
-      // Start API session
       const sid = await amplitudeStart(apiUrl);
       sessionIdRef.current = sid;
       console.log('[Amplitude] session started:', sid);
-
-      // Connect BLE
-      await bleService.scanAndConnect();
+      isRecordingRef.current = true;
+      setIsRecording(true);
     } catch (e: any) {
-      console.log('[Amplitude] connect error:', e.message);
-      setIsConnecting(false);
-      sessionIdRef.current = null;
+      console.log('[Amplitude] start error:', e.message);
     }
-  }, [isConnected, apiUrl]);
+  }, [isRecording, apiUrl]);
 
   const isBadSignal = signalQuality.includes('PAUSED');
 
@@ -449,22 +441,18 @@ const AmplitudeScreen: React.FC = () => {
           </View>
         )}
 
-        {/* Connect Button */}
+        {/* Record Button */}
         <TouchableOpacity
           style={[
             styles.button,
-            isConnected ? styles.buttonDisconnect : styles.buttonConnect,
-            isConnecting && styles.buttonDisabled,
+            isRecording ? styles.buttonStop : styles.buttonRecord,
+            !isConnected && styles.buttonDisabled,
           ]}
-          onPress={handleConnect}
-          disabled={isConnecting}
+          onPress={handleRecording}
+          disabled={!isConnected}
           activeOpacity={0.7}>
           <Text style={styles.buttonText}>
-            {isConnecting
-              ? 'Connecting...'
-              : isConnected
-              ? 'Stop & Disconnect'
-              : 'Connect'}
+            {isRecording ? 'Stop Recording' : 'Start Recording'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -707,14 +695,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonConnect: {
+  buttonRecord: {
     backgroundColor: '#00C853',
   },
-  buttonDisconnect: {
+  buttonStop: {
     backgroundColor: '#FF5252',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   buttonText: {
     fontSize: 18,
