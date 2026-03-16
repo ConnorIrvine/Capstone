@@ -1,4 +1,4 @@
-import React, {useState, useCallback} from 'react';
+import React, {useState, useCallback, useEffect} from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,29 @@ import {
   ImageBackground,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 
 interface Props {
   onSessionStart: () => void;
   onSessionHistory: () => void;
+  onDeveloperMode: () => void;
 }
 
-const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory}) => {
-  const [isConnected, setIsConnected] = useState(false);
+const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDeveloperMode}) => {
+  const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isConnecting, setIsConnecting] = useState(false);
+
+  // Stay in sync if BLE connects/disconnects while this screen is mounted
+  useEffect(() => {
+    bleService.addOnStatusChange('welcome', (status: string) => {
+      setIsConnected(status.includes('Streaming'));
+    });
+    return () => {
+      bleService.removeOnStatusChange('welcome');
+    };
+  }, []);
 
   const handleConnect = useCallback(async () => {
     if (isConnected) return;
@@ -45,8 +57,11 @@ const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory}) => {
 
       <View style={styles.content}>
         <View style={styles.titleContainer}>
-          <Text style={styles.welcomeText}>Welcome to</Text>
-          <Text style={styles.appName}>CalmCoach</Text>
+          <Image
+            source={require('../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={styles.buttons}>
@@ -88,6 +103,14 @@ const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory}) => {
             <Text style={styles.buttonText}>Session History</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Developer mode — subtle link at bottom */}
+        <TouchableOpacity
+          style={styles.devButton}
+          onPress={onDeveloperMode}
+          activeOpacity={0.6}>
+          <Text style={styles.devButtonText}>Developer Mode</Text>
+        </TouchableOpacity>
       </View>
     </ImageBackground>
   );
@@ -110,21 +133,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   titleContainer: {
-    marginTop: '35%',
+    marginTop: '30%',
     alignItems: 'center',
   },
-  welcomeText: {
-    fontSize: 32,
-    color: '#ffffff',
-    fontWeight: '400',
-    textAlign: 'center',
-  },
-  appName: {
-    fontSize: 38,
-    color: '#ffffff',
-    fontWeight: '800',
-    textAlign: 'center',
-    letterSpacing: 1,
+  logo: {
+    width: 280,
+    height: 180,
   },
   buttons: {
     gap: 14,
@@ -153,6 +167,18 @@ const styles = StyleSheet.create({
   },
   buttonTextDisabled: {
     color: 'rgba(200,200,200,0.45)',
+  },
+  devButton: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  devButtonText: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.5,
   },
 });
 

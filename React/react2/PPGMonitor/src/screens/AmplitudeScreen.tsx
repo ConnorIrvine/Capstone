@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
-  TextInput,
   ScrollView,
   Platform,
 } from 'react-native';
@@ -18,9 +17,12 @@ import {
   AmplitudeEvent,
   AmplitudeStopResult,
 } from '../services/AmplitudeService';
+import {saveSession} from '../services/SessionStorageService';
+import {useAppContext} from '../context/AppContext';
 import PPGChart from '../components/PPGChart';
 import AmplitudeCharts, {AmplitudeChartsData} from '../components/AmplitudeCharts';
 import {initSounds, playFeedbackSound, releaseSounds} from '../services/SoundService';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const CHART_WINDOW = 600;
 const SEND_INTERVAL_MS = 1000; // send data every 1 second
@@ -37,23 +39,7 @@ const AmplitudeScreen: React.FC = () => {
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
-  const [apiUrl, setApiUrl] = useState('http://192.168.137.1:8000');
-  const [pendingApiUrl, setPendingApiUrl] = useState(apiUrl);
-  const [apiUrlError, setApiUrlError] = useState<string | null>(null);
-
-  // Debounce API URL changes
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      // Simple validation: must start with http:// or https://
-      if (/^https?:\/\//.test(pendingApiUrl)) {
-        setApiUrl(pendingApiUrl);
-        setApiUrlError(null);
-      } else {
-        setApiUrlError('Invalid URL format');
-      }
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [pendingApiUrl]);
+  const {apiUrl, exitSession} = useAppContext();
   const [currentHR, setCurrentHR] = useState<number | null>(null);
   const [latestAmplitude, setLatestAmplitude] = useState<number | null>(null);
   const [latestColor, setLatestColor] = useState<string>('green');
@@ -69,6 +55,7 @@ const AmplitudeScreen: React.FC = () => {
   // Pending samples buffer — accumulated between sends
   const pendingSamplesRef = useRef<number[]>([]);
   const sessionIdRef = useRef<string | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
 
   // Chart data ref for AmplitudeCharts
   const chartDataRef = useRef<AmplitudeChartsData>({hrSeries: [], events: []});
@@ -223,12 +210,30 @@ const AmplitudeScreen: React.FC = () => {
   const handleRecording = useCallback(async () => {
     if (isRecording) {
       // Stop session
+      const endTime = Date.now();
+      const durSeconds = Math.round((endTime - recordingStartTimeRef.current) / 1000);
       if (sessionIdRef.current) {
         try {
           const stopResult = await amplitudeStop(apiUrl, sessionIdRef.current);
           setSummary(stopResult);
+          saveSession({
+            id: recordingStartTimeRef.current.toString(),
+            type: 'amplitude',
+            startTime: recordingStartTimeRef.current,
+            endTime,
+            durSeconds,
+            meanHR: stopResult.mean_hr ?? undefined,
+            meanAmplitude: stopResult.mean_amplitude ?? undefined,
+          });
         } catch (e: any) {
           console.log('[Amplitude] stop error:', e.message);
+          saveSession({
+            id: recordingStartTimeRef.current.toString(),
+            type: 'amplitude',
+            startTime: recordingStartTimeRef.current,
+            endTime,
+            durSeconds,
+          });
         }
         sessionIdRef.current = null;
       }
@@ -257,6 +262,7 @@ const AmplitudeScreen: React.FC = () => {
     try {
       const sid = await amplitudeStart(apiUrl);
       sessionIdRef.current = sid;
+      recordingStartTimeRef.current = Date.now();
       console.log('[Amplitude] session started:', sid);
       isRecordingRef.current = true;
       setIsRecording(true);
@@ -274,7 +280,12 @@ const AmplitudeScreen: React.FC = () => {
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>HR Amplitude</Text>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={exitSession} style={styles.backBtn} activeOpacity={0.7}>
+              <Icon name="arrow-left" size={26} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.title}>HR Amplitude</Text>
+          </View>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -284,23 +295,6 @@ const AmplitudeScreen: React.FC = () => {
             />
             <Text style={styles.statusText}>{status}</Text>
           </View>
-        </View>
-
-        {/* API URL Input */}
-        <View style={styles.apiRow}>
-          <Text style={styles.apiLabel}>API URL:</Text>
-          <TextInput
-            style={styles.apiInput}
-            value={pendingApiUrl}
-            onChangeText={setPendingApiUrl}
-            placeholder="http://192.168.1.100:8000"
-            placeholderTextColor="#444466"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {apiUrlError && (
-            <Text style={{ color: '#FF5252', fontSize: 12, marginTop: 2 }}>{apiUrlError}</Text>
-          )}
         </View>
 
         {/* PPG Chart */}
@@ -484,6 +478,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingBottom: 8,
   },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  backBtn: {padding: 4},
   title: {
     fontSize: 24,
     fontWeight: '700',

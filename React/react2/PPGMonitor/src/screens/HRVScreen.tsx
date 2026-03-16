@@ -6,14 +6,38 @@ import {
   TouchableOpacity,
   Dimensions,
   StatusBar,
-  TextInput,
   ScrollView,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import {analyzeHRV, HRVResult} from '../services/HRVService';
+import {saveSession} from '../services/SessionStorageService';
+import {useAppContext} from '../context/AppContext';
 import PPGChart from '../components/PPGChart';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+
+// Mirror of program.py check_hrv_status
+function checkHRVStatus(current: number, previous: number | null): 0 | 1 | 2 {
+  if (previous === null) return 1;
+  const change = current - previous;
+  if (change >= 0) return 0;      // GREEN: improving
+  if (change > -5) return 1;      // YELLOW: slight drop
+  return 2;                        // RED: significant drop ≥5ms
+}
+
+const HRV_FEEDBACK = [
+  {color: '#00E676', bg: 'rgba(0,230,118,0.18)', symbol: '✓', message: 'EXCELLENT — HRV IMPROVING'},
+  {color: '#FFD600', bg: 'rgba(255,214,0,0.18)',  symbol: '~', message: 'GOOD — SLIGHT DECREASE'},
+  {color: '#FF5252', bg: 'rgba(255,82,82,0.18)',  symbol: '✗', message: 'REFOCUS — SIGNIFICANT DROP'},
+] as const;
+
+interface FeedbackInfo {
+  status: 0 | 1 | 2;
+  currentRmssd: number;
+  previousRmssd: number | null;
+  windowCount: number;
+}
 
 const CHART_WINDOW = 600;
 const SAMPLING_RATE = 100;
@@ -28,12 +52,16 @@ const HRVScreen: React.FC = () => {
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
-  const [apiUrl, setApiUrl] = useState('http://192.168.137.1:8000');
+  const {apiUrl, exitSession} = useAppContext();
   const [hrvHistory, setHrvHistory] = useState<HRVResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [collectedSeconds, setCollectedSeconds] = useState(0);
+  const [feedback, setFeedback] = useState<FeedbackInfo | null>(null);
 
-  // Data refs for chart rendering (last 600 samples)
+  // Refs
+  const latestHRVRef = useRef<HRVResult | undefined>(undefined);
+  const previousRmssdRef = useRef<number | null>(null);
+  const windowCountRef = useRef(0);
   const dataRef = useRef<number[]>([]);
   const statsRef = useRef({totalSamples: 0, rate: 0, lastRxAge: 0});
 
@@ -49,6 +77,7 @@ const HRVScreen: React.FC = () => {
   // Timer refs
   const updateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const collectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
 
   const screenWidth = Dimensions.get('window').width;
   const chartHeight = 220;
@@ -115,6 +144,22 @@ const HRVScreen: React.FC = () => {
       const result = await analyzeHRV(apiUrl, windowData, SAMPLING_RATE, 1);
       console.log('[HRV] Result:', JSON.stringify(result));
       setHrvHistory(prev => [result, ...prev].slice(0, MAX_HISTORY));
+      // Update latest ref for session saving
+      if (result.success) {
+        latestHRVRef.current = result;
+      }
+      // Compute feedback status (mirrors program.py check_hrv_status)
+      if (result.success && result.rmssd != null) {
+        windowCountRef.current += 1;
+        const status = checkHRVStatus(result.rmssd, previousRmssdRef.current);
+        setFeedback({
+          status,
+          currentRmssd: result.rmssd,
+          previousRmssd: previousRmssdRef.current,
+          windowCount: windowCountRef.current,
+        });
+        previousRmssdRef.current = result.rmssd;
+      }
     } catch (e: any) {
       console.log('[HRV] Error:', e.message);
       const errorResult: HRVResult = {
@@ -189,16 +234,34 @@ const HRVScreen: React.FC = () => {
 
   const handleRecording = useCallback(() => {
     if (isRecording) {
+      const endTime = Date.now();
+      const durSeconds = Math.round((endTime - recordingStartTimeRef.current) / 1000);
+      // Use ref to avoid stale closure on hrvHistory
+      const latestRmssd = latestHRVRef.current?.rmssd;
+      saveSession({
+        id: recordingStartTimeRef.current.toString(),
+        type: 'hrv',
+        startTime: recordingStartTimeRef.current,
+        endTime,
+        durSeconds,
+        rmssd: latestRmssd,
+      });
       isRecordingRef.current = false;
       setIsRecording(false);
       setStatus('Stopped');
     } else {
+      recordingStartTimeRef.current = Date.now();
       dataRef.current = [];
       rollingBufferRef.current = [];
       sampleCountRef.current = 0;
       statsRef.current = {totalSamples: 0, rate: 0, lastRxAge: 0};
       rateCounterRef.current = 0;
       rateWindowStartRef.current = Date.now();
+      // Reset feedback state
+      latestHRVRef.current = undefined;
+      previousRmssdRef.current = null;
+      windowCountRef.current = 0;
+      setFeedback(null);
       setHrvHistory([]);
       setCollectedSeconds(0);
       isRecordingRef.current = true;
@@ -210,13 +273,22 @@ const HRVScreen: React.FC = () => {
   const latestHRV = hrvHistory.find(h => h.success);
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
+    <ImageBackground
+      source={require('../assets/images/background2.jpg')}
+      style={styles.container}
+      resizeMode="cover">
+      <View style={styles.bgOverlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>HRV Analysis</Text>
+          <View style={styles.headerTop}>
+            <TouchableOpacity onPress={exitSession} style={styles.backBtn} activeOpacity={0.7}>
+              <Icon name="arrow-left" size={26} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.title}>HRV Analysis</Text>
+          </View>
           <View style={styles.statusRow}>
             <View
               style={[
@@ -228,20 +300,6 @@ const HRVScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* API URL Input */}
-        <View style={styles.apiRow}>
-          <Text style={styles.apiLabel}>API URL:</Text>
-          <TextInput
-            style={styles.apiInput}
-            value={apiUrl}
-            onChangeText={setApiUrl}
-            placeholder="http://192.168.1.100:8000"
-            placeholderTextColor="#444466"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
         {/* Chart */}
         <View style={styles.chartContainer}>
           <PPGChart
@@ -249,6 +307,7 @@ const HRVScreen: React.FC = () => {
             height={chartHeight}
             dataRef={dataRef}
             statsRef={statsRef}
+            minimal
           />
         </View>
 
@@ -311,6 +370,29 @@ const HRVScreen: React.FC = () => {
           )}
         </View>
 
+        {/* HRV Feedback Box — mirrors program.py display_feedback */}
+        {feedback !== null && (() => {
+          const fb = HRV_FEEDBACK[feedback.status];
+          const change = feedback.previousRmssd !== null
+            ? feedback.currentRmssd - feedback.previousRmssd
+            : null;
+          return (
+            <View style={[styles.feedbackBox, {backgroundColor: fb.bg, borderColor: fb.color}]}>
+              <View style={styles.feedbackLeft}>
+                <Text style={[styles.feedbackSymbol, {color: fb.color}]}>{fb.symbol}</Text>
+              </View>
+              <View style={styles.feedbackBody}>
+                <Text style={[styles.feedbackMessage, {color: fb.color}]}>{fb.message}</Text>
+                <Text style={styles.feedbackDetail}>
+                  RMSSD: {feedback.currentRmssd.toFixed(1)} ms
+                  {change !== null ? `  |  Change: ${change >= 0 ? '+' : ''}${change.toFixed(1)} ms` : '  |  First reading'}
+                </Text>
+                <Text style={styles.feedbackWindow}>Window #{feedback.windowCount}</Text>
+              </View>
+            </View>
+          );
+        })()}
+
         {/* Record Button */}
         <TouchableOpacity
           style={[
@@ -326,14 +408,19 @@ const HRVScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d0d1a',
+    width: '100%',
+    height: '100%',
+  },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,5,30,0.50)',
   },
   scrollContent: {
     flex: 1,
@@ -348,8 +435,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 0.5,
   },
@@ -366,7 +453,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 13,
-    color: '#aaaacc',
+    color: 'rgba(200, 180, 255, 0.75)',
     fontFamily: 'monospace',
   },
   apiRow: {
@@ -377,38 +464,41 @@ const styles = StyleSheet.create({
   },
   apiLabel: {
     fontSize: 12,
-    color: '#6666aa',
+    color: 'rgba(180, 160, 255, 0.65)',
     marginRight: 8,
     fontFamily: 'monospace',
   },
   apiInput: {
     flex: 1,
-    backgroundColor: '#16162a',
-    borderRadius: 6,
+    backgroundColor: 'rgba(30, 20, 60, 0.7)',
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    color: '#ccccee',
+    color: '#e0d8ff',
     fontFamily: 'monospace',
     fontSize: 13,
     borderWidth: 1,
-    borderColor: '#2a2a4a',
+    borderColor: 'rgba(180, 150, 255, 0.3)',
   },
   chartContainer: {
     alignItems: 'center',
     marginVertical: 4,
   },
   hrvPanel: {
-    backgroundColor: '#16162a',
-    borderRadius: 8,
-    padding: 12,
+    backgroundColor: 'rgba(80, 55, 160, 0.65)',
+    borderRadius: 14,
+    padding: 14,
     marginVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.25)',
   },
   hrvTitle: {
     fontSize: 13,
-    color: '#6666aa',
+    color: 'rgba(200, 180, 255, 0.7)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
+    fontWeight: '600',
   },
   currentHRV: {
     flexDirection: 'row',
@@ -417,25 +507,26 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   hrvValue: {
-    fontSize: 48,
-    fontWeight: '700',
+    fontSize: 52,
+    fontWeight: '800',
     color: '#00E676',
     fontFamily: 'monospace',
   },
   hrvUnit: {
-    fontSize: 20,
+    fontSize: 22,
     color: '#00E676',
-    marginLeft: 6,
+    marginLeft: 8,
     fontFamily: 'monospace',
   },
   hrvWaiting: {
-    fontSize: 16,
-    color: '#6666aa',
+    fontSize: 15,
+    color: 'rgba(180, 160, 255, 0.6)',
     fontFamily: 'monospace',
+    textAlign: 'center',
   },
   analyzingText: {
     fontSize: 12,
-    color: '#aaaacc',
+    color: 'rgba(200, 180, 255, 0.7)',
     textAlign: 'center',
     marginTop: 4,
     fontFamily: 'monospace',
@@ -443,15 +534,16 @@ const styles = StyleSheet.create({
   historySection: {
     marginTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#2a2a4a',
+    borderTopColor: 'rgba(180, 150, 255, 0.2)',
     paddingTop: 10,
   },
   historyTitle: {
     fontSize: 12,
-    color: '#6666aa',
+    color: 'rgba(200, 180, 255, 0.6)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
+    fontWeight: '600',
   },
   historyRow: {
     flexDirection: 'row',
@@ -461,7 +553,7 @@ const styles = StyleSheet.create({
   },
   historyTime: {
     fontSize: 12,
-    color: '#8888aa',
+    color: 'rgba(180, 160, 255, 0.6)',
     fontFamily: 'monospace',
     flex: 1,
   },
@@ -482,32 +574,86 @@ const styles = StyleSheet.create({
   },
   historySegments: {
     fontSize: 11,
-    color: '#8888aa',
+    color: 'rgba(160, 140, 220, 0.55)',
     fontFamily: 'monospace',
     width: 80,
     textAlign: 'right',
   },
   button: {
     marginTop: 8,
-    paddingVertical: 16,
-    borderRadius: 10,
+    paddingVertical: 18,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 4,
   },
   buttonRecord: {
-    backgroundColor: '#00C853',
+    backgroundColor: 'rgba(0, 200, 83, 0.9)',
   },
   buttonStop: {
-    backgroundColor: '#FF5252',
+    backgroundColor: 'rgba(255, 82, 82, 0.9)',
   },
   buttonDisabled: {
-    opacity: 0.4,
+    opacity: 0.35,
   },
   buttonText: {
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  // Header back button
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  backBtn: {padding: 4},
+  // HRV Feedback Box
+  feedbackBox: {
+    borderRadius: 14,
+    borderWidth: 2,
+    padding: 16,
+    marginVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  feedbackLeft: {
+    width: 48,
+    height: 48,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.25)',
+  },
+  feedbackSymbol: {
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  feedbackBody: {
+    flex: 1,
+    gap: 3,
+  },
+  feedbackMessage: {
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  feedbackDetail: {
+    fontSize: 13,
+    color: 'rgba(220, 200, 255, 0.85)',
+    fontFamily: 'monospace',
+  },
+  feedbackWindow: {
+    fontSize: 11,
+    color: 'rgba(180, 160, 255, 0.55)',
+    fontFamily: 'monospace',
+    marginTop: 2,
   },
 });
 

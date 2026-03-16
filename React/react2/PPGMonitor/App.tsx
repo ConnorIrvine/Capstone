@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import {View, StyleSheet} from 'react-native';
 import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
@@ -7,11 +7,13 @@ import HRVScreen from './src/screens/HRVScreen';
 import AmplitudeScreen from './src/screens/AmplitudeScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
+import WeeklyInsightsScreen from './src/screens/WeeklyInsightsScreen';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {AppContextProvider, useAppContext} from './src/context/AppContext';
 
 const Tab = createBottomTabNavigator();
 
-type AppView = 'welcome' | 'session' | 'history';
+type AppView = 'welcome' | 'session' | 'history' | 'insights' | 'developer';
 
 const TabNavigator: React.FC = () => (
   <NavigationContainer>
@@ -30,16 +32,6 @@ const TabNavigator: React.FC = () => (
           fontWeight: '600',
         },
       }}>
-      <Tab.Screen
-        name="PPG Monitor"
-        component={PPGMonitorScreen}
-        options={{
-          tabBarLabel: 'PPG Monitor',
-          tabBarIcon: ({color, size}) => (
-            <Icon name="heart-pulse" color={color} size={size} />
-          ),
-        }}
-      />
       <Tab.Screen
         name="HRV Analysis"
         component={HRVScreen}
@@ -64,8 +56,13 @@ const TabNavigator: React.FC = () => (
   </NavigationContainer>
 );
 
-const App: React.FC = () => {
+const AppInner: React.FC = () => {
   const [view, setView] = useState<AppView>('welcome');
+  const {setExitSession} = useAppContext();
+
+  useEffect(() => {
+    setExitSession(() => setView('welcome'));
+  }, [setExitSession]);
 
   if (view === 'session') {
     return (
@@ -78,7 +75,26 @@ const App: React.FC = () => {
   if (view === 'history') {
     return (
       <View style={styles.root}>
-        <SessionHistoryScreen onBack={() => setView('welcome')} />
+        <SessionHistoryScreen
+          onBack={() => setView('welcome')}
+          onInsights={() => setView('insights')}
+        />
+      </View>
+    );
+  }
+
+  if (view === 'insights') {
+    return (
+      <View style={styles.root}>
+        <WeeklyInsightsScreen onBack={() => setView('history')} />
+      </View>
+    );
+  }
+
+  if (view === 'developer') {
+    return (
+      <View style={styles.root}>
+        <PPGMonitorScreen onBack={() => setView('welcome')} />
       </View>
     );
   }
@@ -88,10 +104,17 @@ const App: React.FC = () => {
       <WelcomeScreen
         onSessionStart={() => setView('session')}
         onSessionHistory={() => setView('history')}
+        onDeveloperMode={() => setView('developer')}
       />
     </View>
   );
 };
+
+const App: React.FC = () => (
+  <AppContextProvider>
+    <AppInner />
+  </AppContextProvider>
+);
 
 const styles = StyleSheet.create({
   root: {

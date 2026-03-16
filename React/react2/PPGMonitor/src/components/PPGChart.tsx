@@ -24,9 +24,10 @@ interface PPGChartProps {
     rate: number;
     lastRxAge: number;
   }>;
+  minimal?: boolean;
 }
 
-const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef}) => {
+const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef, minimal = false}) => {
   const [tick, setTick] = useState(0);
 
   const chartPadding = {top: 30, bottom: 30, left: 15, right: 15};
@@ -113,8 +114,8 @@ const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef}) =
   return (
     <View style={styles.container}>
       <Canvas style={{width, height}}>
-        {/* Grid lines */}
-        {gridElements}
+        {/* Grid lines (hidden in minimal mode) */}
+        {!minimal && gridElements}
 
         {/* PPG signal line */}
         <SkiaPath
@@ -126,14 +127,16 @@ const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef}) =
           strokeCap="round"
         />
 
-        {/* Stats overlay */}
-        <SkiaText
-          x={chartPadding.left + 5}
-          y={chartPadding.top + 14}
-          text={`Samples: ${statsRef.current.totalSamples}  |  Rate: ${statsRef.current.rate.toFixed(1)} Hz  |  Last: ${statsRef.current.lastRxAge.toFixed(2)}s`}
-          font={font}
-          color="rgba(255,255,255,0.7)"
-        />
+        {/* Stats overlay (hidden in minimal mode) */}
+        {!minimal && (
+          <SkiaText
+            x={chartPadding.left + 5}
+            y={chartPadding.top + 14}
+            text={`Samples: ${statsRef.current.totalSamples}  |  Rate: ${statsRef.current.rate.toFixed(1)} Hz  |  Last: ${statsRef.current.lastRxAge.toFixed(2)}s`}
+            font={font}
+            color="rgba(255,255,255,0.7)"
+          />
+        )}
       </Canvas>
     </View>
   );

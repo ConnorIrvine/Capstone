@@ -7,15 +7,22 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  SafeAreaView,
+  TextInput,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import PPGChart from '../components/PPGChart';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useAppContext} from '../context/AppContext';
 
 const WINDOW_SIZE = 600;
 const RATE_WINDOW_SEC = 5;
 
-const PPGMonitorScreen: React.FC = () => {
+interface Props {
+  onBack: () => void;
+}
+
+const PPGMonitorScreen: React.FC<Props> = ({onBack}) => {
+  const {apiUrl, setApiUrl} = useAppContext();
   const [status, setStatus] = useState(bleService.connected ? 'Connected. Streaming...' : 'Idle');
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
@@ -101,12 +108,17 @@ const PPGMonitorScreen: React.FC = () => {
   }, [isRecording]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>PPG Live Monitor</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+            <Icon name="arrow-left" size={26} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={styles.title}>PPG Live Monitor</Text>
+        </View>
         <View style={styles.statusRow}>
           <View
             style={[
@@ -116,6 +128,20 @@ const PPGMonitorScreen: React.FC = () => {
           />
           <Text style={styles.statusText}>{status}</Text>
         </View>
+      </View>
+
+      {/* API URL */}
+      <View style={styles.apiRow}>
+        <Text style={styles.apiLabel}>API URL</Text>
+        <TextInput
+          style={styles.apiInput}
+          value={apiUrl}
+          onChangeText={setApiUrl}
+          placeholder="http://192.168.1.100:8000"
+          placeholderTextColor="#444466"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
       </View>
 
       {/* Chart */}
@@ -154,7 +180,7 @@ const PPGMonitorScreen: React.FC = () => {
           {isRecording ? 'Stop Recording' : 'Start Recording'}
         </Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -174,10 +200,19 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 8,
-    paddingBottom: 12,
+    paddingBottom: 8,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  backBtn: {
+    padding: 4,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
@@ -185,7 +220,8 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 2,
+    marginLeft: 38,
   },
   statusDot: {
     width: 8,
@@ -197,6 +233,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#aaaacc',
     fontFamily: 'monospace',
+  },
+  apiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  apiLabel: {
+    fontSize: 12,
+    color: '#6666aa',
+    fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  apiInput: {
+    flex: 1,
+    backgroundColor: '#16162a',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    color: '#ccccee',
+    fontFamily: 'monospace',
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
   },
   chartContainer: {
     alignItems: 'center',

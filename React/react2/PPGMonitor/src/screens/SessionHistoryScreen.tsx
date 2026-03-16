@@ -1,34 +1,176 @@
-import React from 'react';
-import {View, Text, StyleSheet, StatusBar, TouchableOpacity} from 'react-native';
+import React, {useCallback, useEffect, useState} from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  StatusBar,
+  TouchableOpacity,
+  ImageBackground,
+  ScrollView,
+  ActivityIndicator,
+} from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {
+  loadSessions,
+  groupByWeek,
+  formatDayLabel,
+  formatTime,
+  formatDuration,
+  formatWeekLabel,
+  Session,
+} from '../services/SessionStorageService';
 
 interface Props {
   onBack: () => void;
+  onInsights: () => void;
 }
 
-const SessionHistoryScreen: React.FC<Props> = ({onBack}) => {
+const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
+  const [weeks, setWeeks] = useState<{weekStart: Date; sessions: Session[]}[]>([]);
+  const [weekIndex, setWeekIndex] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const sessions = await loadSessions();
+    setWeeks(groupByWeek(sessions));
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  const currentWeek = weeks[weekIndex] ?? null;
+  const totalWeeks = weeks.length;
+
+  const buildRows = () => {
+    if (!currentWeek) return [];
+    const rows: {dayLabel: string; time: string; duration: string}[] = [];
+    let lastDay = '';
+    for (const s of currentWeek.sessions) {
+      const dayLabel = formatDayLabel(s.startTime);
+      rows.push({
+        dayLabel: dayLabel !== lastDay ? dayLabel : '',
+        time: formatTime(s.startTime),
+        duration: formatDuration(s.durSeconds),
+      });
+      lastDay = dayLabel;
+    }
+    return rows;
+  };
+
+  const rows = buildRows();
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
+    <ImageBackground
+      source={require('../assets/images/background2.jpg')}
+      style={styles.bg}
+      resizeMode="cover">
+      <View style={styles.overlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+
       <View style={styles.header}>
         <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
-          <Icon name="arrow-left" size={24} color="#ffffff" />
+          <Icon name="arrow-left" size={28} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.title}>Session History</Text>
+        <Text style={styles.headerTitle}>Session History</Text>
       </View>
-      <View style={styles.body}>
-        <Icon name="history" size={64} color="#2a2a4a" />
-        <Text style={styles.emptyText}>No sessions yet</Text>
-        <Text style={styles.subText}>Completed sessions will appear here</Text>
-      </View>
-    </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+
+        {/* This Week's Feedback */}
+        <TouchableOpacity
+          style={styles.feedbackCard}
+          onPress={onInsights}
+          activeOpacity={0.85}>
+          <Text style={styles.feedbackText}>This Week's Feedback</Text>
+          <Icon name="arrow-right" size={28} color="#ffffff" />
+        </TouchableOpacity>
+
+        {/* Week Table */}
+        <View style={styles.tableCard}>
+          <View style={styles.weekNav}>
+            <TouchableOpacity
+              onPress={() => setWeekIndex(i => Math.min(i + 1, totalWeeks - 1))}
+              disabled={weekIndex >= totalWeeks - 1}
+              activeOpacity={0.7}
+              style={[styles.navBtn, weekIndex >= totalWeeks - 1 && styles.navBtnDisabled]}>
+              <Icon name="arrow-left" size={22} color="#ffffff" />
+            </TouchableOpacity>
+            <Text style={styles.weekLabel}>
+              {currentWeek ? formatWeekLabel(currentWeek.weekStart) : 'No Sessions'}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setWeekIndex(i => Math.max(i - 1, 0))}
+              disabled={weekIndex <= 0}
+              activeOpacity={0.7}
+              style={[styles.navBtn, weekIndex <= 0 && styles.navBtnDisabled]}>
+              <Icon name="arrow-right" size={22} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {loading ? (
+            <ActivityIndicator color="#c0b0ff" size="large" style={styles.loader} />
+          ) : rows.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Icon name="calendar-blank" size={48} color="rgba(180,160,255,0.4)" />
+              <Text style={styles.emptyText}>No sessions this week</Text>
+              <Text style={styles.emptySubText}>Complete a recording to see it here</Text>
+            </View>
+          ) : (
+            <View style={styles.table}>
+              {rows.map((row, i) => (
+                <View
+                  key={i}
+                  style={[styles.tableRow, i % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
+                  <Text style={[styles.cell, styles.cellDay]}>{row.dayLabel}</Text>
+                  <Text style={[styles.cell, styles.cellTime]}>{row.time}</Text>
+                  <Text style={[styles.cell, styles.cellDur]}>{row.duration}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {totalWeeks > 0 && (
+        <View style={styles.pagination}>
+          <TouchableOpacity
+            onPress={() => setWeekIndex(i => Math.min(i + 1, totalWeeks - 1))}
+            disabled={weekIndex >= totalWeeks - 1}
+            activeOpacity={0.7}>
+            <Icon
+              name="chevron-left"
+              size={22}
+              color={weekIndex >= totalWeeks - 1 ? 'rgba(255,255,255,0.3)' : '#ffffff'}
+            />
+          </TouchableOpacity>
+          <Text style={styles.pageText}>{weekIndex + 1} / {totalWeeks}</Text>
+          <TouchableOpacity
+            onPress={() => setWeekIndex(i => Math.max(i - 1, 0))}
+            disabled={weekIndex <= 0}
+            activeOpacity={0.7}>
+            <Icon
+              name="chevron-right"
+              size={22}
+              color={weekIndex <= 0 ? 'rgba(255,255,255,0.3)' : '#ffffff'}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0d0d1a',
+  bg: {flex: 1, width: '100%', height: '100%'},
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,5,30,0.45)',
   },
   header: {
     flexDirection: 'row',
@@ -36,32 +178,107 @@ const styles = StyleSheet.create({
     paddingTop: 56,
     paddingHorizontal: 20,
     paddingBottom: 16,
+  },
+  backBtn: {marginRight: 14, padding: 4},
+  headerTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  scroll: {flex: 1},
+  scrollContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 80,
+    gap: 16,
+  },
+  feedbackCard: {
+    backgroundColor: 'rgba(100, 70, 200, 0.75)',
+    borderRadius: 16,
+    paddingVertical: 22,
+    paddingHorizontal: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.3)',
+  },
+  feedbackText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: 'rgba(220, 200, 255, 0.9)',
+    letterSpacing: 0.3,
+  },
+  tableCard: {
+    backgroundColor: 'rgba(80, 55, 160, 0.65)',
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.25)',
+    paddingBottom: 8,
+  },
+  weekNav: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#1a1a2e',
+    borderBottomColor: 'rgba(180, 150, 255, 0.2)',
   },
-  backBtn: {
-    marginRight: 16,
-    padding: 4,
-  },
-  title: {
-    fontSize: 22,
+  navBtn: {padding: 4},
+  navBtnDisabled: {opacity: 0.3},
+  weekLabel: {
+    fontSize: 17,
     fontWeight: '700',
     color: '#ffffff',
+    letterSpacing: 0.3,
   },
-  body: {
-    flex: 1,
+  loader: {margin: 32},
+  emptyContainer: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
+    paddingVertical: 36,
+    gap: 10,
   },
   emptyText: {
-    fontSize: 18,
-    color: '#6666aa',
+    fontSize: 16,
+    color: 'rgba(200, 180, 255, 0.85)',
     fontWeight: '600',
   },
-  subText: {
-    fontSize: 14,
-    color: '#444466',
+  emptySubText: {
+    fontSize: 13,
+    color: 'rgba(180, 160, 255, 0.55)',
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  table: {overflow: 'hidden'},
+  tableRow: {
+    flexDirection: 'row',
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(160, 130, 255, 0.2)',
+  },
+  rowEven: {backgroundColor: 'rgba(230, 220, 255, 0.12)'},
+  rowOdd: {backgroundColor: 'rgba(200, 185, 255, 0.06)'},
+  cell: {fontSize: 16, color: '#ffffff', fontWeight: '600'},
+  cellDay: {flex: 1.2},
+  cellTime: {flex: 1, textAlign: 'center'},
+  cellDur: {flex: 0.9, textAlign: 'right'},
+  pagination: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    paddingVertical: 14,
+    backgroundColor: 'rgba(20, 10, 50, 0.7)',
+  },
+  pageText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#ffffff',
+    minWidth: 50,
+    textAlign: 'center',
   },
 });
 
