@@ -59,6 +59,7 @@ from collections import deque
 import numpy as np
 import neurokit2 as nk
 import warnings
+import matplotlib.pyplot as plt
 
 warnings.filterwarnings('ignore')
 
@@ -184,6 +185,16 @@ def is_segment_bad(segment, sampling_rate):
     if np.std(seg) < 1.0:
         print("[DEBUG] Segment failed flatline/low variance check")
         return True
+    
+    # Low peak-to-peak range - More effective variance check
+    if np.ptp(seg) < 80:  # peak-to-peak range too small
+        print("[DEBUG] Segment failed low peak-to-peak range check")
+        return True
+
+    # Hitting sensor limits - Hard Thresholding (0 to 4000)
+    if np.any(seg == 0) or np.any(seg >= 4000): 
+        print("[DEBUG] Segment failed sensor limit check")
+        return True
 
     # Clipping / saturation (too many identical values)
     unique_ratio = len(np.unique(seg)) / len(seg)
@@ -196,6 +207,16 @@ def is_segment_bad(segment, sampling_rate):
         print("[DEBUG] Segment failed extreme jump check")
         return True
 
+    # Noise has high path length (sum of absolute differences)
+    path_length = np.sum(np.abs(np.diff(seg)))
+    if path_length > 12000: # experimentally determined
+        print("[DEBUG] Segment failed path length check")
+        '''plt.plot(seg)
+        plt.ylim(0, 4000)
+        plt.title("High Path Length Segment: " + f"{path_length:.0f}")
+        plt.show()'''
+        return True
+
     # Peak plausibility (very rough)
     try:
         peaks, _ = nk.ppg_peaks(seg, sampling_rate=sampling_rate)
@@ -206,7 +227,7 @@ def is_segment_bad(segment, sampling_rate):
 
         # For 3s segment, expect roughly 2–6 peaks at 40–120 bpm
         if peak_count < 2 or peak_count > 6:
-            print("[DEBUG] Segment failed peak plausibility check")
+            print(f"[DEBUG] Segment failed peak plausibility check")
             return True
     except Exception:
         return True
@@ -235,7 +256,7 @@ def is_window_bad(ppg_window, sampling_rate, segment_sec=3, max_bad_segments=0):
             print(f"[DEBUG] Bad segment detected in window (segment #{i+1})")
             if bad_segments > max_bad_segments:
                 return True
-
+    
     return False
 
 
@@ -370,7 +391,7 @@ def collect_and_analyze_from_file(file_path, duration, realtime=False):
                     continue
                 ppg_window = np.array(all_ppg_data[window_start_sample:window_end_sample])
 
-                if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=15):
+                if is_window_bad(ppg_window, SAMPLING_RATE, segment_sec=3, max_bad_segments=0):
                     print(f"\n[Window #{window_count}] Bad data detected (segment SQI). Skipping HRV.")
                     continue
 
@@ -535,6 +556,11 @@ def main():
     with open(os.path.join(output_dir, "ppg_peaks_data.txt"), "w") as f:
         for idx in ppg_peaks_data_combined:
             f.write(f"{idx}\n")
+    
+    # for graphing bad segments in plot_realtime_data_ericas_version.py
+    '''with open(os.path.join(output_dir, "detected_bad_segments.txt"), "w") as f:
+        for seg in ppg_window_data_combined:
+            f.write(f"{seg}\n")'''
 
     # Always output a copy of the input ppg_data.txt to output_filter_testing
     if os.path.basename(file_path) == "ppg_data.txt":
