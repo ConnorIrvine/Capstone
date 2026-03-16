@@ -20,6 +20,7 @@ import {
 } from '../services/AmplitudeService';
 import PPGChart from '../components/PPGChart';
 import AmplitudeCharts, {AmplitudeChartsData} from '../components/AmplitudeCharts';
+import {initSounds, playFeedbackSound, releaseSounds} from '../services/SoundService';
 
 const CHART_WINDOW = 600;
 const SEND_INTERVAL_MS = 1000; // send data every 1 second
@@ -64,7 +65,13 @@ const AmplitudeScreen: React.FC = () => {
   const sendTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const screenWidth = Dimensions.get('window').width;
-  const chartHeight = 180;
+  const chartHeight = 110;
+
+  // Load sounds
+  useEffect(() => {
+    initSounds();
+    return () => releaseSounds();
+  }, []);
 
   // Rate calculation interval
   useEffect(() => {
@@ -141,6 +148,7 @@ const AmplitudeScreen: React.FC = () => {
         cd.events = cd.events.concat(result.events);
 
         const latest = result.events[result.events.length - 1];
+        playFeedbackSound(latest.feedback_color);
         setLatestAmplitude(latest.amplitude);
         setLatestColor(latest.feedback_color);
         setLatestBreathingRate(latest.breathing_rate_bpm);
@@ -211,6 +219,10 @@ const AmplitudeScreen: React.FC = () => {
       }
       await bleService.disconnect();
       setIsConnected(false);
+      // Reset rate stats so PPG viewer stops counting
+      statsRef.current = {totalSamples: statsRef.current.totalSamples, rate: 0, lastRxAge: 0};
+      lastRxTimeRef.current = 0;
+      rateCounterRef.current = 0;
       return;
     }
 
@@ -293,9 +305,10 @@ const AmplitudeScreen: React.FC = () => {
         {/* HR / Amplitude / Breathing Rate Charts */}
         <View style={styles.chartContainer}>
           <AmplitudeCharts
-            width={screenWidth - 16}
-            height={360}
+            viewportWidth={screenWidth - 16}
+            height={400}
             dataRef={chartDataRef}
+            isStreaming={isConnected}
           />
         </View>
 
