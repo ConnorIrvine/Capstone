@@ -5,6 +5,7 @@ import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import PPGMonitorScreen from './src/screens/PPGMonitorScreen';
 import HRVScreen from './src/screens/HRVScreen';
 import AmplitudeScreen from './src/screens/AmplitudeScreen';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const Tab = createBottomTabNavigator();
 
@@ -33,6 +34,9 @@ const App: React.FC = () => {
             component={PPGMonitorScreen}
             options={{
               tabBarLabel: 'PPG Monitor',
+              tabBarIcon: ({ color, size }) => (
+                <Icon name="heart-pulse" color={color} size={size} />
+              ),
             }}
           />
           <Tab.Screen
@@ -40,6 +44,9 @@ const App: React.FC = () => {
             component={HRVScreen}
             options={{
               tabBarLabel: 'HRV Analysis',
+              tabBarIcon: ({ color, size }) => (
+                <Icon name="chart-line" color={color} size={size} />
+              ),
             }}
           />
           <Tab.Screen
@@ -47,6 +54,9 @@ const App: React.FC = () => {
             component={AmplitudeScreen}
             options={{
               tabBarLabel: 'Amplitude',
+              tabBarIcon: ({ color, size }) => (
+                <Icon name="waveform" color={color} size={size} />
+              ),
             }}
           />
         </Tab.Navigator>

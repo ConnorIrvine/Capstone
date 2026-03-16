@@ -37,6 +37,22 @@ const AmplitudeScreen: React.FC = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [apiUrl, setApiUrl] = useState('http://192.168.137.1:8000');
+  const [pendingApiUrl, setPendingApiUrl] = useState(apiUrl);
+  const [apiUrlError, setApiUrlError] = useState<string | null>(null);
+
+  // Debounce API URL changes
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      // Simple validation: must start with http:// or https://
+      if (/^https?:\/\//.test(pendingApiUrl)) {
+        setApiUrl(pendingApiUrl);
+        setApiUrlError(null);
+      } else {
+        setApiUrlError('Invalid URL format');
+      }
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [pendingApiUrl]);
   const [currentHR, setCurrentHR] = useState<number | null>(null);
   const [latestAmplitude, setLatestAmplitude] = useState<number | null>(null);
   const [latestColor, setLatestColor] = useState<string>('green');
@@ -283,13 +299,16 @@ const AmplitudeScreen: React.FC = () => {
           <Text style={styles.apiLabel}>API URL:</Text>
           <TextInput
             style={styles.apiInput}
-            value={apiUrl}
-            onChangeText={setApiUrl}
+            value={pendingApiUrl}
+            onChangeText={setPendingApiUrl}
             placeholder="http://192.168.1.100:8000"
             placeholderTextColor="#444466"
             autoCapitalize="none"
             autoCorrect={false}
           />
+          {apiUrlError && (
+            <Text style={{ color: '#FF5252', fontSize: 12, marginTop: 2 }}>{apiUrlError}</Text>
+          )}
         </View>
 
         {/* PPG Chart */}
