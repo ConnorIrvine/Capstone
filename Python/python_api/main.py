@@ -2,15 +2,19 @@
 HRV Analysis API
 
 A FastAPI-based REST API for calculating Heart Rate Variability (HRV) RMSSD
-from PPG (photoplethysmography) signal data with signal quality assessment.
+from PPG (photoplethysmography) signal data with signal quality assessment,
+and real-time HR amplitude (RSA) biofeedback via session-based endpoints.
 """
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional
+from typing import Dict, List, Optional
+from collections import deque
+import uuid
 import numpy as np
 import neurokit2 as nk
+from scipy.signal import find_peaks
 import os
 import warnings
 
@@ -269,6 +273,9 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "/analyze": "POST - Analyze PPG data and calculate HRV RMSSD",
+            "/amplitude/start": "POST - Start an amplitude monitoring session",
+            "/amplitude/data": "POST - Send PPG samples and receive amplitude events",
+            "/amplitude/stop": "POST - Stop session and get summary",
             "/docs": "GET - Interactive API documentation",
             "/health": "GET - Health check endpoint"
         }
@@ -362,6 +369,332 @@ async def analyze_hrv(request: HRVRequest):
         rmssd=rmssd,
         bad_segments=bad_segments,
     )
+
+
+# ─────────────────────────────────────────────────────────────
+# HR Amplitude (RSA) — Session-based real-time biofeedback
+# ─────────────────────────────────────────────────────────────
+
+# Constants (same as hr_amplitude.py)
+AMP_SAMPLING_RATE = 100
+AMP_BUFFER_SEC = 10
+AMP_BUFFER_SAMPLES = AMP_BUFFER_SEC * AMP_SAMPLING_RATE  # 1000
+AMP_SEGMENT_SEC = 3
+AMP_SEGMENT_SAMPLES = AMP_SEGMENT_SEC * AMP_SAMPLING_RATE  # 300
+AMP_PROCESS_INTERVAL = 100  # process every 100 samples (~1 s)
+AMP_BAD_RESET_DELAY = 4.0
+AMP_YELLOW_THRESHOLD = 0.90
+
+
+def initial_cleaning(ppg_window, peak_indices, rising_window=5):
+    cleaned = []
+    for idx in peak_indices:
+        end_idx = min(idx + rising_window + 1, len(ppg_window))
+        after = ppg_window[idx:end_idx]
+        if len(after) > 1 and all(after[i] < after[i + 1] for i in range(len(after) - 1)):
+            continue
+        cleaned.append(idx)
+    return cleaned
+
+
+def clean_peaks(ppg_window, peak_indices, rising_window=5, min_distance=20):
+    cleaned = initial_cleaning(ppg_window, peak_indices, rising_window)
+    i = 0
+    while i < len(cleaned) - 1:
+        if cleaned[i + 1] - cleaned[i] < min_distance:
+            if ppg_window[cleaned[i]] >= ppg_window[cleaned[i + 1]]:
+                cleaned.pop(i + 1)
+            else:
+                cleaned.pop(i)
+        else:
+            i += 1
+    return cleaned
+
+
+class RealTimeHRVAmplitude:
+    def __init__(self):
+        self.last_peak_idx = None
+        self.last_peak_hr = None
+        self.amplitudes: List[float] = []
+        self.last_confirmed_idx = -1
+        self.paused = False
+
+    def reset_peak_state(self, hr_len=0):
+        self.last_peak_idx = None
+        self.last_peak_hr = None
+        self.last_confirmed_idx = hr_len - 1
+
+    def update(self, hr_times, hr_values):
+        n = len(hr_values)
+        if n < 10:
+            return []
+
+        hr = np.array(hr_values, dtype=float)
+        CONFIRM_MARGIN = 3
+
+        peaks, _ = find_peaks(hr, distance=4, prominence=1.5)
+        troughs, _ = find_peaks(-hr, distance=4, prominence=1.5)
+
+        events = sorted(
+            [(i, "peak") for i in peaks] + [(i, "trough") for i in troughs]
+        )
+
+        feedback = []
+        for idx, event_type in events:
+            if idx <= self.last_confirmed_idx:
+                continue
+            if idx >= n - CONFIRM_MARGIN:
+                continue
+
+            if event_type == "peak":
+                self.last_peak_idx = idx
+                self.last_peak_hr = hr[idx]
+                self.last_confirmed_idx = idx
+
+            elif event_type == "trough":
+                self.last_confirmed_idx = idx
+                if self.last_peak_hr is not None and self.last_peak_idx is not None:
+                    amplitude = self.last_peak_hr - hr[idx]
+                    if amplitude > 1.0:
+                        self.amplitudes.append(amplitude)
+
+                        peak_t = hr_times[self.last_peak_idx]
+                        trough_t = hr_times[idx]
+                        half_period = trough_t - peak_t
+                        breathing_rate = 60.0 / (2 * half_period) if half_period > 0 else 0
+
+                        feedback.append({
+                            "peak_idx": self.last_peak_idx,
+                            "trough_idx": idx,
+                            "peak_hr": float(self.last_peak_hr),
+                            "trough_hr": float(hr[idx]),
+                            "amplitude": float(amplitude),
+                            "breathing_rate_bpm": breathing_rate,
+                        })
+                    self.last_peak_hr = None
+                    self.last_peak_idx = None
+
+        return feedback
+
+
+class AmplitudeSession:
+    """Server-side state for one amplitude monitoring session."""
+
+    def __init__(self):
+        self.ppg_buffer: deque = deque(maxlen=AMP_BUFFER_SAMPLES)
+        self.segment_buffer: deque = deque(maxlen=AMP_SEGMENT_SAMPLES)
+        self.tracker = RealTimeHRVAmplitude()
+        self.hr_times: List[float] = []
+        self.hr_values: List[float] = []
+        self.amp_times: List[float] = []
+        self.amp_values: List[float] = []
+        self.bpm_values: List[float] = []
+        self.sample_count = 0
+        self.last_process_count = 0
+        self.last_hr_sent_count = 0
+        self.is_paused = False
+        self.bad_start_time: Optional[float] = None
+        self.peak_state_reset = False
+
+
+# In-memory session store
+_sessions: Dict[str, AmplitudeSession] = {}
+
+
+class AmplitudeStartResponse(BaseModel):
+    session_id: str
+
+
+class AmplitudeDataRequest(BaseModel):
+    session_id: str
+    samples: List[float] = Field(..., min_length=1)
+
+
+class HRDataPoint(BaseModel):
+    time_s: float
+    hr_bpm: float
+
+
+class AmplitudeEvent(BaseModel):
+    peak_hr: float
+    trough_hr: float
+    amplitude: float
+    breathing_rate_bpm: float
+    feedback_color: str
+    time_s: float
+    peak_time_s: float
+
+
+class AmplitudeDataResponse(BaseModel):
+    hr: Optional[float] = None
+    signal_quality: str
+    events: List[AmplitudeEvent] = []
+    hr_data: List[HRDataPoint] = []
+    sample_count: int
+
+
+class AmplitudeStopRequest(BaseModel):
+    session_id: str
+
+
+class AmplitudeStopResponse(BaseModel):
+    total_samples: int
+    total_amplitude_events: int
+    mean_hr: Optional[float] = None
+    min_hr: Optional[float] = None
+    max_hr: Optional[float] = None
+    mean_amplitude: Optional[float] = None
+    min_amplitude: Optional[float] = None
+    max_amplitude: Optional[float] = None
+    mean_breathing_rate: Optional[float] = None
+
+
+@app.post("/amplitude/start", response_model=AmplitudeStartResponse)
+async def amplitude_start():
+    session_id = uuid.uuid4().hex[:16]
+    _sessions[session_id] = AmplitudeSession()
+    return AmplitudeStartResponse(session_id=session_id)
+
+
+@app.post("/amplitude/data", response_model=AmplitudeDataResponse)
+async def amplitude_data(request: AmplitudeDataRequest):
+    session = _sessions.get(request.session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    new_events: List[AmplitudeEvent] = []
+    hr_before = len(session.hr_values)
+
+    for val in request.samples:
+        session.ppg_buffer.append(val)
+        session.segment_buffer.append(val)
+        session.sample_count += 1
+
+        # SQI check on every sample once segment buffer is full
+        if len(session.segment_buffer) == AMP_SEGMENT_SAMPLES:
+            seg = np.array(session.segment_buffer)
+            t = session.sample_count / AMP_SAMPLING_RATE
+
+            if is_segment_bad(seg, AMP_SAMPLING_RATE):
+                if not session.is_paused:
+                    session.is_paused = True
+                    session.tracker.paused = True
+                    session.bad_start_time = t
+                    session.peak_state_reset = False
+                elif (
+                    not session.peak_state_reset
+                    and session.bad_start_time is not None
+                    and (t - session.bad_start_time) >= AMP_BAD_RESET_DELAY
+                ):
+                    session.tracker.reset_peak_state(len(session.hr_values))
+                    session.peak_state_reset = True
+            else:
+                if session.is_paused:
+                    session.is_paused = False
+                    session.tracker.paused = False
+                    session.bad_start_time = None
+                    session.peak_state_reset = False
+
+    # Process every PROCESS_INTERVAL samples when not paused
+    while (
+        session.sample_count - session.last_process_count >= AMP_PROCESS_INTERVAL
+        and len(session.ppg_buffer) >= AMP_SAMPLING_RATE * 5
+        and not session.is_paused
+    ):
+        session.last_process_count += AMP_PROCESS_INTERVAL
+        buf_array = np.array(session.ppg_buffer)
+
+        try:
+            signals, _ = nk.ppg_process(buf_array, sampling_rate=AMP_SAMPLING_RATE)
+            if "PPG_Peaks" in signals:
+                raw_peaks = list(np.where(signals["PPG_Peaks"] == 1)[0])
+            else:
+                raw_peaks = []
+
+            cleaned = clean_peaks(buf_array, raw_peaks)
+
+            if len(cleaned) >= 2:
+                ibi = np.diff(cleaned) / AMP_SAMPLING_RATE
+                ibi = ibi[(ibi > 0.3) & (ibi < 2.0)]
+                if len(ibi) > 0:
+                    avg_hr = 60.0 / np.mean(ibi)
+                    t_hr = session.sample_count / AMP_SAMPLING_RATE
+                    session.hr_times.append(t_hr)
+                    session.hr_values.append(avg_hr)
+        except Exception:
+            pass
+
+        try:
+            results = session.tracker.update(session.hr_times, session.hr_values)
+            for item in results:
+                trough_t = session.hr_times[item["trough_idx"]]
+                amp = item["amplitude"]
+
+                prev_amp = session.amp_values[-1] if session.amp_values else None
+                session.amp_times.append(trough_t)
+                session.amp_values.append(amp)
+                session.bpm_values.append(item["breathing_rate_bpm"])
+
+                if prev_amp is None or amp >= prev_amp:
+                    color = "green"
+                elif amp >= prev_amp * AMP_YELLOW_THRESHOLD:
+                    color = "yellow"
+                else:
+                    color = "red"
+
+                peak_t = session.hr_times[item["peak_idx"]]
+                new_events.append(AmplitudeEvent(
+                    peak_hr=item["peak_hr"],
+                    trough_hr=item["trough_hr"],
+                    amplitude=amp,
+                    breathing_rate_bpm=item["breathing_rate_bpm"],
+                    feedback_color=color,
+                    time_s=trough_t,
+                    peak_time_s=peak_t,
+                ))
+        except Exception:
+            pass
+
+    # Collect new HR data points added during this call
+    new_hr_data = [
+        HRDataPoint(time_s=session.hr_times[i], hr_bpm=session.hr_values[i])
+        for i in range(hr_before, len(session.hr_values))
+    ]
+
+    return AmplitudeDataResponse(
+        hr=session.hr_values[-1] if session.hr_values else None,
+        signal_quality="PAUSED (bad signal)" if session.is_paused else "ACTIVE",
+        events=new_events,
+        hr_data=new_hr_data,
+        sample_count=session.sample_count,
+    )
+
+
+@app.post("/amplitude/stop", response_model=AmplitudeStopResponse)
+async def amplitude_stop(request: AmplitudeStopRequest):
+    session = _sessions.pop(request.session_id, None)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    resp = AmplitudeStopResponse(
+        total_samples=session.sample_count,
+        total_amplitude_events=len(session.amp_values),
+    )
+
+    if session.hr_values:
+        resp.mean_hr = float(np.mean(session.hr_values))
+        resp.min_hr = float(np.min(session.hr_values))
+        resp.max_hr = float(np.max(session.hr_values))
+
+    if session.amp_values:
+        resp.mean_amplitude = float(np.mean(session.amp_values))
+        resp.min_amplitude = float(np.min(session.amp_values))
+        resp.max_amplitude = float(np.max(session.amp_values))
+
+    if session.bpm_values:
+        resp.mean_breathing_rate = float(np.mean(session.bpm_values))
+
+    return resp
 
 
 if __name__ == "__main__":
