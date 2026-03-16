@@ -1,0 +1,72 @@
+
+============================================================
+HR AMPLITUDE MONITORING - Real-Time Biofeedback
+============================================================
+
+Scanning for BLE device 'NanoESP32_PPG'...
+  Found: NanoESP32_PPG (E4:B0:63:AE:F4:CD) RSSI=-36
+
+Auto-selected device: NanoESP32_PPG (E4:B0:63:AE:F4:CD)
+
+Enter recording duration in seconds (e.g., 180 for 3 minutes): 
+============================================================
+CONFIGURATION
+============================================================
+BLE Device: E4:B0:63:AE:F4:CD
+Duration: 30 seconds (0.5 minutes)
+============================================================
+
+Start recording? (y/n): 
+============================================================
+Connecting to BLE device E4:B0:63:AE:F4:CD...
+Connected! Recording for 30s
+Processing every 1.0s on a 10s rolling buffer
+============================================================
+
+  Samples: 100 | Time: 1.0s | Status: ACTIVE  Samples: 200 | Time: 2.0s | Status: ACTIVE  Samples: 300 | Time: 3.0s | Status: ACTIVE
+[3.7s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+  Samples: 400 | Time: 4.0s | Status: PAUSED (bad signal)  Samples: 500 | Time: 5.0s | Status: PAUSED (bad signal)  Samples: 600 | Time: 6.0s | Status: PAUSED (bad signal)  Samples: 700 | Time: 7.0s | Status: PAUSED (bad signal)
+[7.2s] Signal recovered — amplitude tracking RESUMED
+  Samples: 800 | Time: 8.0s | Status: ACTIVE
+[8.2s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+  Samples: 900 | Time: 9.0s | Status: PAUSED (bad signal)  Samples: 1000 | Time: 10.0s | Status: PAUSED (bad signal)  Samples: 1100 | Time: 11.0s | Status: PAUSED (bad signal)
+[11.2s] Signal recovered — amplitude tracking RESUMED
+  Samples: 1200 | Time: 12.0s | Status: ACTIVE  Samples: 1300 | Time: 13.0s | Status: ACTIVE
+[13.0s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+
+[13.3s] Signal recovered — amplitude tracking RESUMED
+
+[13.9s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+
+[13.9s] Signal recovered — amplitude tracking RESUMED
+
+[13.9s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+  Samples: 1400 | Time: 14.0s | Status: PAUSED (bad signal)
+[14.1s] Signal recovered — amplitude tracking RESUMED
+
+[14.7s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+  Samples: 1500 | Time: 15.0s | Status: PAUSED (bad signal)  Samples: 1600 | Time: 16.0s | Status: PAUSED (bad signal)  Samples: 1700 | Time: 17.0s | Status: PAUSED (bad signal)  Samples: 1800 | Time: 18.0s | Status: PAUSED (bad signal)
+[18.7s] Bad data persisted 4s — peak state RESET
+  Samples: 1900 | Time: 19.0s | Status: PAUSED (bad signal)  Samples: 2000 | Time: 20.0s | Status: PAUSED (bad signal)  Samples: 2100 | Time: 21.0s | Status: PAUSED (bad signal)
+[21.2s] Signal recovered — amplitude tracking RESUMED
+  Samples: 2200 | Time: 22.0s | Status: ACTIVE  Samples: 2300 | Time: 23.0s | Status: ACTIVE  Samples: 2400 | Time: 24.0s | Status: ACTIVE  Samples: 2500 | Time: 25.0s | Status: ACTIVE
+[25.3s] !! BAD SEGMENT detected — amplitude tracking PAUSED
+  Samples: 2600 | Time: 26.0s | Status: PAUSED (bad signal)  Samples: 2700 | Time: 27.0s | Status: PAUSED (bad signal)  Samples: 2800 | Time: 28.0s | Status: PAUSED (bad signal)  Samples: 2900 | Time: 29.0s | Status: PAUSED (bad signal)
+[29.3s] Bad data persisted 4s — peak state RESET
+
+[29.5s] Signal recovered — amplitude tracking RESUMED
+  Samples: 3000 | Time: 30.0s | Status: ACTIVE
+
+Recording complete!
+
+============================================================
+SESSION SUMMARY
+============================================================
+Total samples: 3004
+Amplitude events: 0
+Mean heart rate: 85.9 bpm
+Min heart rate:  74.1 bpm
+Max heart rate:  98.0 bpm
+============================================================
+
+Session complete. Thank you!
