@@ -4,7 +4,7 @@ HR AMPLITUDE MONITORING - Real-Time Biofeedback
 ============================================================
 
 Scanning for BLE device 'NanoESP32_PPG'...
-  Found: NanoESP32_PPG (E4:B0:63:AE:F4:CD) RSSI=-33
+  Found: NanoESP32_PPG (E4:B0:63:AE:F4:CD) RSSI=-40
 
 Auto-selected device: NanoESP32_PPG (E4:B0:63:AE:F4:CD)
 
@@ -17,54 +17,3 @@ Duration: 70 seconds (1.2 minutes)
 ============================================================
 
 Start recording? (y/n): 
-============================================================
-Connecting to BLE device E4:B0:63:AE:F4:CD...
-Connected! Recording for 70s
-Processing every 1.0s on a 10s rolling buffer
-============================================================
-
-  Samples: 100 | Time: 1.0s | Status: ACTIVE  Samples: 200 | Time: 2.0s | Status: ACTIVE  Samples: 300 | Time: 3.0s | Status: ACTIVE  Samples: 400 | Time: 4.0s | Status: ACTIVE  Samples: 500 | Time: 5.0s | Status: ACTIVE  Samples: 600 | Time: 6.0s | Status: ACTIVE  Samples: 700 | Time: 7.0s | Status: ACTIVE
-  >> HR: 96 bpm | Amplitude: 322.02 | Breathing Rate: 8.5 bpm | Time: 5.3s
-  Samples: 800 | Time: 8.0s | Status: ACTIVE  Samples: 900 | Time: 9.0s | Status: ACTIVE  Samples: 1000 | Time: 10.0s | Status: ACTIVE  Samples: 1100 | Time: 11.0s | Status: ACTIVE
-  >> HR: 102 bpm | Amplitude: 267.03 | Breathing Rate: 6.0 bpm | Time: 8.4s
-  Samples: 1200 | Time: 12.0s | Status: ACTIVE  Samples: 1300 | Time: 13.0s | Status: ACTIVE  Samples: 1400 | Time: 14.0s | Status: ACTIVE  Samples: 1500 | Time: 15.0s | Status: ACTIVE  Samples: 1600 | Time: 16.0s | Status: ACTIVE  Samples: 1700 | Time: 17.0s | Status: ACTIVE  Samples: 1800 | Time: 18.0s | Status: ACTIVE  Samples: 1900 | Time: 19.0s | Status: ACTIVE
-  >> HR: 83 bpm | Amplitude: 244.87 | Breathing Rate: 6.0 bpm | Time: 17.3s
-  Samples: 2000 | Time: 20.0s | Status: ACTIVE  Samples: 2100 | Time: 21.0s | Status: ACTIVE  Samples: 2200 | Time: 22.0s | Status: ACTIVE  Samples: 2300 | Time: 23.0s | Status: ACTIVE  Samples: 2400 | Time: 24.0s | Status: ACTIVE  Samples: 2500 | Time: 25.0s | Status: ACTIVE  Samples: 2600 | Time: 26.0s | Status: ACTIVE  Samples: 2700 | Time: 27.0s | Status: ACTIVE  Samples: 2800 | Time: 28.0s | Status: ACTIVE
-  >> HR: 94 bpm | Amplitude: 235.17 | Breathing Rate: 12.0 bpm | Time: 27.1s
-  Samples: 2900 | Time: 29.0s | Status: ACTIVE  Samples: 3000 | Time: 30.0s | Status: ACTIVE  Samples: 3100 | Time: 31.0s | Status: ACTIVE  Samples: 3200 | Time: 32.0s | Status: ACTIVE  Samples: 3300 | Time: 33.0s | Status: ACTIVE
-  >> HR: 73 bpm | Amplitude: 235.46 | Breathing Rate: 12.0 bpm | Time: 31.5s
-  Samples: 3400 | Time: 34.0s | Status: ACTIVE  Samples: 3500 | Time: 35.0s | Status: ACTIVE  Samples: 3600 | Time: 36.0s | Status: ACTIVE  Samples: 3700 | Time: 37.0s | Status: ACTIVE  Samples: 3800 | Time: 38.0s | Status: ACTIVE
-  >> HR: 94 bpm | Amplitude: 279.48 | Breathing Rate: 12.0 bpm | Time: 37.2s
-  Samples: 3900 | Time: 39.0s | Status: ACTIVE  Samples: 4000 | Time: 40.0s | Status: ACTIVE  Samples: 4100 | Time: 41.0s | Status: ACTIVE  Samples: 4200 | Time: 42.0s | Status: ACTIVE
-  >> HR: 95 bpm | Amplitude: 194.26 | Breathing Rate: 18.0 bpm | Time: 40.5s
-  Samples: 4300 | Time: 43.0s | Status: ACTIVE  Samples: 4400 | Time: 44.0s | Status: ACTIVE  Samples: 4500 | Time: 45.0s | Status: ACTIVE  Samples: 4600 | Time: 46.0s | Status: ACTIVE  Samples: 4700 | Time: 47.0s | Status: ACTIVE  Samples: 4800 | Time: 48.0s | Status: ACTIVE  Samples: 4900 | Time: 49.0s | Status: ACTIVE
-  >> HR: 88 bpm | Amplitude: 198.26 | Breathing Rate: 6.0 bpm | Time: 48.3s
-  Samples: 5000 | Time: 50.0s | Status: ACTIVE  Samples: 5100 | Time: 51.0s | Status: ACTIVE
-  >> HR: 95 bpm | Amplitude: 154.41 | Breathing Rate: 12.0 bpm | Time: 50.9s
-  Samples: 5200 | Time: 52.0s | Status: ACTIVE  Samples: 5300 | Time: 53.0s | Status: ACTIVE  Samples: 5400 | Time: 54.0s | Status: ACTIVE
-  >> HR: 98 bpm | Amplitude: 260.79 | Breathing Rate: 18.0 bpm | Time: 53.8s
-  Samples: 5500 | Time: 55.0s | Status: ACTIVE  Samples: 5600 | Time: 56.0s | Status: ACTIVE  Samples: 5700 | Time: 57.0s | Status: ACTIVE  Samples: 5800 | Time: 58.0s | Status: ACTIVE  Samples: 5900 | Time: 59.0s | Status: ACTIVE  Samples: 6000 | Time: 60.0s | Status: ACTIVE  Samples: 6100 | Time: 61.0s | Status: ACTIVE
-  >> HR: 74 bpm | Amplitude: 299.96 | Breathing Rate: 12.0 bpm | Time: 59.1s
-  Samples: 6200 | Time: 62.0s | Status: ACTIVE  Samples: 6300 | Time: 63.0s | Status: ACTIVE  Samples: 6400 | Time: 64.0s | Status: ACTIVE  Samples: 6500 | Time: 65.0s | Status: ACTIVE  Samples: 6600 | Time: 66.0s | Status: ACTIVE
-  >> HR: 87 bpm | Amplitude: 314.12 | Breathing Rate: 12.0 bpm | Time: 64.9s
-  Samples: 6700 | Time: 67.0s | Status: ACTIVE  Samples: 6800 | Time: 68.0s | Status: ACTIVE
-  >> HR: 95 bpm | Amplitude: 312.20 | Breathing Rate: 6.0 bpm | Time: 67.0s
-  Samples: 6900 | Time: 69.0s | Status: ACTIVE  Samples: 7000 | Time: 70.0s | Status: ACTIVE
-
-Recording complete!
-
-============================================================
-SESSION SUMMARY
-============================================================
-Total samples: 7004
-Amplitude events: 13
-Mean heart rate: 90.3 bpm
-Min heart rate:  72.8 bpm
-Max heart rate:  104.7 bpm
-Mean amplitude: 255.23
-Min amplitude:  154.41
-Max amplitude:  322.02
-Mean breathing rate: 10.8 bpm
-============================================================
-
-Session complete. Thank you!
