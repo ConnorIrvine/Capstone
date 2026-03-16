@@ -4,6 +4,7 @@ import {NavigationContainer} from '@react-navigation/native';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import PPGMonitorScreen from './src/screens/PPGMonitorScreen';
 import HRVScreen from './src/screens/HRVScreen';
+import AmplitudeScreen from './src/screens/AmplitudeScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -39,6 +40,13 @@ const App: React.FC = () => {
             component={HRVScreen}
             options={{
               tabBarLabel: 'HRV Analysis',
+            }}
+          />
+          <Tab.Screen
+            name="Amplitude"
+            component={AmplitudeScreen}
+            options={{
+              tabBarLabel: 'Amplitude',
             }}
           />
         </Tab.Navigator>
