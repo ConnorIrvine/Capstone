@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {
+  Alert,
   View,
   Text,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   loadSessions,
+  deleteSession,
   groupByWeek,
   formatDayLabel,
   formatTime,
@@ -29,6 +31,7 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
   const [weeks, setWeeks] = useState<{weekStart: Date; sessions: Session[]}[]>([]);
   const [weekIndex, setWeekIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -44,13 +47,40 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
   const currentWeek = weeks[weekIndex] ?? null;
   const totalWeeks = weeks.length;
 
+  useEffect(() => {
+    if (weekIndex > 0 && weekIndex >= totalWeeks) {
+      setWeekIndex(totalWeeks - 1);
+    }
+  }, [totalWeeks, weekIndex]);
+
+  const handleDeleteSession = useCallback((session: Session) => {
+    Alert.alert(
+      'Delete session?',
+      'This session will be permanently removed from history.',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingId(session.id);
+            await deleteSession(session.id);
+            await reload();
+            setDeletingId(null);
+          },
+        },
+      ],
+    );
+  }, [reload]);
+
   const buildRows = () => {
     if (!currentWeek) return [];
-    const rows: {dayLabel: string; time: string; duration: string}[] = [];
+    const rows: {session: Session; dayLabel: string; time: string; duration: string}[] = [];
     let lastDay = '';
     for (const s of currentWeek.sessions) {
       const dayLabel = formatDayLabel(s.startTime);
       rows.push({
+        session: s,
         dayLabel: dayLabel !== lastDay ? dayLabel : '',
         time: formatTime(s.startTime),
         duration: formatDuration(s.durSeconds),
@@ -125,11 +155,22 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
             <View style={styles.table}>
               {rows.map((row, i) => (
                 <View
-                  key={i}
+                  key={row.session.id}
                   style={[styles.tableRow, i % 2 === 0 ? styles.rowEven : styles.rowOdd]}>
                   <Text style={[styles.cell, styles.cellDay]}>{row.dayLabel}</Text>
                   <Text style={[styles.cell, styles.cellTime]}>{row.time}</Text>
                   <Text style={[styles.cell, styles.cellDur]}>{row.duration}</Text>
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={() => handleDeleteSession(row.session)}
+                    activeOpacity={0.7}
+                    disabled={deletingId === row.session.id}>
+                    <Icon
+                      name="trash-can-outline"
+                      size={18}
+                      color={deletingId === row.session.id ? 'rgba(255,120,120,0.45)' : '#ff9090'}
+                    />
+                  </TouchableOpacity>
                 </View>
               ))}
             </View>
@@ -265,6 +306,12 @@ const styles = StyleSheet.create({
   cellDay: {flex: 1.2},
   cellTime: {flex: 1, textAlign: 'center'},
   cellDur: {flex: 0.9, textAlign: 'right'},
+  deleteBtn: {
+    marginLeft: 10,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    alignSelf: 'center',
+  },
   pagination: {
     flexDirection: 'row',
     alignItems: 'center',

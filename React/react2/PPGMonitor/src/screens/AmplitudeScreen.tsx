@@ -122,6 +122,9 @@ const AmplitudeScreen: React.FC = () => {
 
   // Send accumulated samples to API
   const sendPending = useCallback(async () => {
+    if (!isRecordingRef.current) {
+      return;
+    }
     const sid = sessionIdRef.current;
     if (!sid) {
       return;
@@ -210,6 +213,14 @@ const AmplitudeScreen: React.FC = () => {
   const handleRecording = useCallback(async () => {
     if (isRecording) {
       // Stop session
+      if (sendTimerRef.current) {
+        clearInterval(sendTimerRef.current);
+        sendTimerRef.current = null;
+      }
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      pendingSamplesRef.current = [];
+
       const endTime = Date.now();
       const durSeconds = Math.round((endTime - recordingStartTimeRef.current) / 1000);
       if (sessionIdRef.current) {
@@ -240,8 +251,6 @@ const AmplitudeScreen: React.FC = () => {
       statsRef.current = {totalSamples: statsRef.current.totalSamples, rate: 0, lastRxAge: 0};
       lastRxTimeRef.current = 0;
       rateCounterRef.current = 0;
-      isRecordingRef.current = false;
-      setIsRecording(false);
       return;
     }
 
@@ -446,7 +455,7 @@ const AmplitudeScreen: React.FC = () => {
           disabled={!isConnected}
           activeOpacity={0.7}>
           <Text style={styles.buttonText}>
-            {isRecording ? 'Stop Recording' : 'Start Recording'}
+            {isRecording ? 'End Session' : 'Start Session'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

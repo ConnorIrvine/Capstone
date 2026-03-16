@@ -131,6 +131,9 @@ const HRVScreen: React.FC = () => {
 
   // Send data to API for HRV analysis
   const sendToAPI = useCallback(async () => {
+    if (!isRecordingRef.current) {
+      return;
+    }
     const buffer = rollingBufferRef.current;
     console.log('[HRV] sendToAPI called, buffer length:', buffer.length, '/', ROLLING_WINDOW_SAMPLES);
     if (buffer.length < ROLLING_WINDOW_SAMPLES) {
@@ -195,9 +198,9 @@ const HRVScreen: React.FC = () => {
     };
   }, [handleData]);
 
-  // Update the collected seconds counter and start HRV timer once connected
+  // Update the collected seconds counter and HRV timer only during an active session
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && isRecording) {
       // Track how many seconds of data we have
       collectTimerRef.current = setInterval(() => {
         const secs = Math.floor(sampleCountRef.current / SAMPLING_RATE);
@@ -230,7 +233,7 @@ const HRVScreen: React.FC = () => {
         collectTimerRef.current = null;
       }
     };
-  }, [isConnected, sendToAPI]);
+  }, [isConnected, isRecording, sendToAPI]);
 
   const handleRecording = useCallback(() => {
     if (isRecording) {
@@ -404,7 +407,7 @@ const HRVScreen: React.FC = () => {
           disabled={!isConnected}
           activeOpacity={0.7}>
           <Text style={styles.buttonText}>
-            {isRecording ? 'Stop Recording' : 'Start Recording'}
+            {isRecording ? 'End Session' : 'Start Session'}
           </Text>
         </TouchableOpacity>
       </ScrollView>

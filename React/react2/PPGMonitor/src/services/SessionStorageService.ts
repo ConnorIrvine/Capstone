@@ -43,6 +43,16 @@ export async function clearSessions(): Promise<void> {
   }
 }
 
+export async function deleteSession(sessionId: string): Promise<void> {
+  try {
+    const existing = await loadSessions();
+    const updated = existing.filter(s => s.id !== sessionId);
+    await AsyncStorage.setItem(SESSIONS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('[SessionStorage] delete error:', e);
+  }
+}
+
 /** Returns sessions grouped into ISO weeks, sorted newest first.
  *  Each week: { weekStart: Date (monday), sessions: Session[] }
  */
