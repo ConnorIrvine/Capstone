@@ -114,6 +114,26 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+        packagingOptions {
+            exclude "META-INF/LICENSE"
+            exclude "META-INF/LICENSE.txt"
+            exclude "META-INF/NOTICE"
+            exclude "META-INF/NOTICE.txt"
+            pickFirst "assets/fonts/MaterialCommunityIcons.ttf"
+            pickFirst "assets/fonts/FontAwesome.ttf"
+            pickFirst "assets/fonts/FontAwesome5_Brands.ttf"
+            pickFirst "assets/fonts/FontAwesome5_Regular.ttf"
+            pickFirst "assets/fonts/FontAwesome5_Solid.ttf"
+            pickFirst "assets/fonts/Ionicons.ttf"
+            pickFirst "assets/fonts/Entypo.ttf"
+            pickFirst "assets/fonts/EvilIcons.ttf"
+            pickFirst "assets/fonts/Feather.ttf"
+            pickFirst "assets/fonts/Foundation.ttf"
+            pickFirst "assets/fonts/MaterialIcons.ttf"
+            pickFirst "assets/fonts/Octicons.ttf"
+            pickFirst "assets/fonts/SimpleLineIcons.ttf"
+            pickFirst "assets/fonts/Zocial.ttf"
+        }
 }
 
 dependencies {

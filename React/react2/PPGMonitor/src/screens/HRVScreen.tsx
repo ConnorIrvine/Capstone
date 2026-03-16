@@ -13,6 +13,7 @@ import {
 import {bleService} from '../services/BleService';
 import {analyzeHRV, HRVResult} from '../services/HRVService';
 import PPGChart from '../components/PPGChart';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const CHART_WINDOW = 600;
 const SAMPLING_RATE = 100;
