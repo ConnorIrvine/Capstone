@@ -3,11 +3,13 @@ import {
   StyleSheet,
   View,
   Text,
+  Alert,
   TouchableOpacity,
   Dimensions,
   StatusBar,
   ScrollView,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import {
@@ -35,7 +37,7 @@ const FEEDBACK_COLORS: Record<string, string> = {
 };
 
 const AmplitudeScreen: React.FC = () => {
-  const [status, setStatus] = useState('Idle');
+  const [status, setStatus] = useState('Ready');
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
@@ -56,6 +58,9 @@ const AmplitudeScreen: React.FC = () => {
   const pendingSamplesRef = useRef<number[]>([]);
   const sessionIdRef = useRef<string | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
+  const hadConnectionRef = useRef(bleService.connected);
+  const disconnectHandledRef = useRef(false);
+  const disconnectedDuringSessionRef = useRef(false);
 
   // Chart data ref for AmplitudeCharts
   const chartDataRef = useRef<AmplitudeChartsData>({hrSeries: [], events: []});
@@ -173,14 +178,48 @@ const AmplitudeScreen: React.FC = () => {
   useEffect(() => {
     bleService.addOnData('amplitude', handleData);
     bleService.addOnStatusChange('amplitude', (newStatus: string) => {
-      setStatus(newStatus);
       const connected = newStatus.includes('Streaming');
       setIsConnected(connected);
+
+      if (connected) {
+        hadConnectionRef.current = true;
+        disconnectHandledRef.current = false;
+        return;
+      }
+
+      if (!hadConnectionRef.current || disconnectHandledRef.current) {
+        return;
+      }
+
+      disconnectHandledRef.current = true;
+      disconnectedDuringSessionRef.current = disconnectedDuringSessionRef.current || isRecordingRef.current;
+
+      if (sendTimerRef.current) {
+        clearInterval(sendTimerRef.current);
+        sendTimerRef.current = null;
+      }
+
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      pendingSamplesRef.current = [];
+      setStatus('Connection lost');
+
+      if (sessionIdRef.current) {
+        const sid = sessionIdRef.current;
+        sessionIdRef.current = null;
+        amplitudeStop(apiUrl, sid).catch(() => {});
+      }
+
+      Alert.alert(
+        'Device disconnected',
+        'Connection lost. Returning to the main screen. This session was not saved.',
+        [{text: 'OK', onPress: exitSession}],
+        {cancelable: false},
+      );
     });
 
     if (bleService.connected) {
       setIsConnected(true);
-      setStatus('Connected. Streaming...');
     }
 
     return () => {
@@ -212,6 +251,12 @@ const AmplitudeScreen: React.FC = () => {
 
   const handleRecording = useCallback(async () => {
     if (isRecording) {
+      if (disconnectedDuringSessionRef.current) {
+        disconnectedDuringSessionRef.current = false;
+        setStatus('Session canceled');
+        return;
+      }
+
       // Stop session
       if (sendTimerRef.current) {
         clearInterval(sendTimerRef.current);
@@ -251,6 +296,7 @@ const AmplitudeScreen: React.FC = () => {
       statsRef.current = {totalSamples: statsRef.current.totalSamples, rate: 0, lastRxAge: 0};
       lastRxTimeRef.current = 0;
       rateCounterRef.current = 0;
+      setStatus('Session ended');
       return;
     }
 
@@ -267,6 +313,7 @@ const AmplitudeScreen: React.FC = () => {
     setLatestBreathingRate(null);
     setSignalQuality('ACTIVE');
     setEventHistory([]);
+    disconnectedDuringSessionRef.current = false;
 
     try {
       const sid = await amplitudeStart(apiUrl);
@@ -275,16 +322,22 @@ const AmplitudeScreen: React.FC = () => {
       console.log('[Amplitude] session started:', sid);
       isRecordingRef.current = true;
       setIsRecording(true);
+      setStatus('Session active');
     } catch (e: any) {
       console.log('[Amplitude] start error:', e.message);
+      setStatus('Session start failed');
     }
   }, [isRecording, apiUrl]);
 
   const isBadSignal = signalQuality.includes('PAUSED');
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
+    <ImageBackground
+      source={require('../assets/images/background2.jpg')}
+      style={styles.container}
+      resizeMode="cover">
+      <View style={styles.bgOverlay} />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContainer}>
         {/* Header */}
@@ -313,6 +366,9 @@ const AmplitudeScreen: React.FC = () => {
             height={chartHeight}
             dataRef={dataRef}
             statsRef={statsRef}
+            showStats={false}
+            showYAxisLabels={false}
+            showGridLines={false}
           />
         </View>
 
@@ -459,7 +515,7 @@ const AmplitudeScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 };
 
@@ -473,7 +529,12 @@ const SummaryRow: React.FC<{label: string; value: string}> = ({label, value}) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d0d1a',
+    width: '100%',
+    height: '100%',
+  },
+  bgOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(10,5,30,0.50)',
   },
   scrollContent: {
     flex: 1,
@@ -495,8 +556,8 @@ const styles = StyleSheet.create({
   },
   backBtn: {padding: 4},
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#ffffff',
     letterSpacing: 0.5,
   },
@@ -513,7 +574,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 13,
-    color: '#aaaacc',
+    color: 'rgba(200, 180, 255, 0.75)',
     fontFamily: 'monospace',
   },
   apiRow: {
@@ -546,7 +607,7 @@ const styles = StyleSheet.create({
   },
   sqiBadge: {
     alignSelf: 'center',
-    backgroundColor: '#16162a',
+    backgroundColor: 'rgba(30, 20, 60, 0.7)',
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 4,
@@ -556,7 +617,7 @@ const styles = StyleSheet.create({
   },
   sqiBadgeBad: {
     borderColor: '#FF5252',
-    backgroundColor: '#2a1020',
+    backgroundColor: 'rgba(90, 20, 40, 0.72)',
   },
   sqiText: {
     fontSize: 12,
@@ -575,15 +636,17 @@ const styles = StyleSheet.create({
   },
   metricBox: {
     flex: 1,
-    backgroundColor: '#16162a',
+    backgroundColor: 'rgba(80, 55, 160, 0.65)',
     borderRadius: 8,
     padding: 10,
     marginHorizontal: 3,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.25)',
   },
   metricLabel: {
     fontSize: 10,
-    color: '#6666aa',
+    color: 'rgba(200, 180, 255, 0.70)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -595,18 +658,18 @@ const styles = StyleSheet.create({
   metricValue: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#ccccee',
+    color: '#ffffff',
     fontFamily: 'monospace',
   },
   metricUnit: {
     fontSize: 12,
-    color: '#8888aa',
+    color: 'rgba(200, 180, 255, 0.70)',
     marginLeft: 3,
     fontFamily: 'monospace',
   },
   metricWaiting: {
     fontSize: 28,
-    color: '#444466',
+    color: 'rgba(180, 160, 255, 0.50)',
     fontFamily: 'monospace',
     fontWeight: '700',
   },
@@ -628,16 +691,16 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   summaryPanel: {
-    backgroundColor: '#16162a',
+    backgroundColor: 'rgba(80, 55, 160, 0.65)',
     borderRadius: 8,
     padding: 12,
     marginVertical: 8,
     borderWidth: 1,
-    borderColor: '#2a2a4a',
+    borderColor: 'rgba(180, 150, 255, 0.25)',
   },
   summaryTitle: {
     fontSize: 13,
-    color: '#6666aa',
+    color: 'rgba(200, 180, 255, 0.70)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
@@ -650,24 +713,26 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: '#8888aa',
+    color: 'rgba(200, 180, 255, 0.72)',
     fontFamily: 'monospace',
   },
   summaryValue: {
     fontSize: 13,
-    color: '#ccccee',
+    color: '#ffffff',
     fontFamily: 'monospace',
     fontWeight: '600',
   },
   historySection: {
-    backgroundColor: '#16162a',
+    backgroundColor: 'rgba(80, 55, 160, 0.65)',
     borderRadius: 8,
     padding: 12,
     marginVertical: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.25)',
   },
   historyTitle: {
     fontSize: 12,
-    color: '#6666aa',
+    color: 'rgba(200, 180, 255, 0.70)',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 6,
@@ -680,7 +745,7 @@ const styles = StyleSheet.create({
   },
   historyTime: {
     fontSize: 12,
-    color: '#8888aa',
+    color: 'rgba(180, 160, 255, 0.70)',
     fontFamily: 'monospace',
     width: 60,
   },
@@ -693,7 +758,7 @@ const styles = StyleSheet.create({
   },
   historyBreathing: {
     fontSize: 12,
-    color: '#8888aa',
+    color: 'rgba(180, 160, 255, 0.70)',
     fontFamily: 'monospace',
     width: 90,
     textAlign: 'right',

@@ -25,100 +25,80 @@ interface Props {
 interface WeekStats {
   sessionCount: number;
   totalSeconds: number;
-  avgRmssd: number | null;
+  avgBaselineRmssd: number | null;
+  avgSessionImprovementPct: number | null;
   avgHR: number | null;
   weekLabel: string;
   sessions: Session[];
 }
 
-function computeStats(groups: {weekStart: Date; sessions: Session[]}[]): WeekStats | null {
-  if (groups.length === 0) return null;
-  const {weekStart, sessions} = groups[0];
+interface FeedbackStats {
+  current: WeekStats;
+  previous: WeekStats | null;
+}
+
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+function buildWeekStats(weekStart: Date, sessions: Session[]): WeekStats {
   const totalSeconds = sessions.reduce((s, x) => s + x.durSeconds, 0);
-  const rmssdVals = sessions.filter(s => s.rmssd != null).map(s => s.rmssd as number);
   const hrVals = sessions.filter(s => s.meanHR != null).map(s => s.meanHR as number);
+  const baselineVals = sessions
+    .filter(s => s.baselineRmssd != null)
+    .map(s => s.baselineRmssd as number);
+  const improvementVals = sessions
+    .filter(s => s.rmssdImprovementPct != null)
+    .map(s => s.rmssdImprovementPct as number);
+
   return {
     sessionCount: sessions.length,
     totalSeconds,
-    avgRmssd: rmssdVals.length > 0 ? rmssdVals.reduce((a, b) => a + b, 0) / rmssdVals.length : null,
-    avgHR: hrVals.length > 0 ? hrVals.reduce((a, b) => a + b, 0) / hrVals.length : null,
+    avgBaselineRmssd: average(baselineVals),
+    avgSessionImprovementPct: average(improvementVals),
+    avgHR: average(hrVals),
     weekLabel: formatWeekLabel(weekStart),
     sessions,
   };
 }
 
-function hrColor(hr: number | null): string {
-  if (hr == null) return '#aaaacc';
-  if (hr < 60) return '#64B5F6';
-  if (hr < 100) return '#00E676';
-  return '#FF7043';
+function computeStats(groups: {weekStart: Date; sessions: Session[]}[]): FeedbackStats | null {
+  if (groups.length === 0) return null;
+  const current = buildWeekStats(groups[0].weekStart, groups[0].sessions);
+  const previous =
+    groups.length > 1
+      ? buildWeekStats(groups[1].weekStart, groups[1].sessions)
+      : null;
+  return {current, previous};
 }
 
-function rmssdColor(rmssd: number | null): string {
-  if (rmssd == null) return '#aaaacc';
-  if (rmssd > 50) return '#00E676';
-  if (rmssd > 30) return '#FFD600';
-  return '#FF5252';
+function formatPct(value: number): string {
+  return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 }
 
-function rmssdLabel(rmssd: number | null): string {
-  if (rmssd == null) return 'No Data';
-  if (rmssd > 50) return 'Excellent';
-  if (rmssd > 30) return 'Good';
-  return 'Low';
+function wowDelta(curr: number | null, prev: number | null): number | null {
+  if (curr == null || prev == null) return null;
+  return curr - prev;
 }
 
-const StatCard: React.FC<{
-  icon: string;
-  label: string;
-  value: string;
-  sub?: string;
-  color?: string;
-}> = ({icon, label, value, sub, color = '#c0b0ff'}) => (
-  <View style={cardStyles.card}>
-    <Icon name={icon} size={30} color={color} />
-    <Text style={cardStyles.value}>{value}</Text>
-    <Text style={cardStyles.label}>{label}</Text>
-    {sub ? <Text style={[cardStyles.sub, {color}]}>{sub}</Text> : null}
-  </View>
-);
+function improvementNote(pct: number | null): string {
+  if (pct == null) return 'No improvement data yet this week';
+  if (pct >= 10) return 'Strong improvement this week';
+  if (pct >= 0) return 'HRV held steady or improved during sessions';
+  return 'Slight decrease this week — normal variation';
+}
 
-const cardStyles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: 'rgba(80, 55, 160, 0.65)',
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(180, 150, 255, 0.25)',
-  },
-  value: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginTop: 6,
-  },
-  label: {
-    fontSize: 12,
-    color: 'rgba(200, 180, 255, 0.7)',
-    fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 2,
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  sub: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-});
+function wowNote(delta: number | null, unit: string): string {
+  if (delta == null) return 'Need another week to show a comparison';
+  if (Math.abs(delta) < 1) return `About the same as last week`;
+  return delta > 0
+    ? `Up ${Math.abs(delta).toFixed(1)}${unit} from last week`
+    : `Down ${Math.abs(delta).toFixed(1)}${unit} from last week`;
+}
 
 const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
-  const [stats, setStats] = useState<WeekStats | null>(null);
+  const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
@@ -133,8 +113,24 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
     reload();
   }, [reload]);
 
-  const hrv = stats?.avgRmssd ?? null;
-  const hr = stats?.avgHR ?? null;
+  const current = stats?.current ?? null;
+  const previous = stats?.previous ?? null;
+
+  const baseline = current?.avgBaselineRmssd ?? null;
+  const sessionImprovement = current?.avgSessionImprovementPct ?? null;
+
+  const baselineDelta = wowDelta(
+    current?.avgBaselineRmssd ?? null,
+    previous?.avgBaselineRmssd ?? null,
+  );
+  const improvementDelta = wowDelta(
+    current?.avgSessionImprovementPct ?? null,
+    previous?.avgSessionImprovementPct ?? null,
+  );
+
+  const improvColor = sessionImprovement != null && sessionImprovement >= 0 ? '#00E676' : '#FFD600';
+  const baselineDeltaColor = baselineDelta == null ? '#c0b0ff' : baselineDelta >= 0 ? '#00E676' : '#FFD600';
+  const improvDeltaColor = improvementDelta == null ? '#c0b0ff' : improvementDelta >= 0 ? '#00E676' : '#FFD600';
 
   return (
     <ImageBackground
@@ -150,8 +146,8 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>Weekly Feedback</Text>
-          {stats && !loading && (
-            <Text style={styles.headerSub}>{stats.weekLabel}</Text>
+          {current && !loading && (
+            <Text style={styles.headerSub}>{current.weekLabel}</Text>
           )}
         </View>
       </View>
@@ -163,107 +159,92 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
 
         {loading ? (
           <ActivityIndicator color="#c0b0ff" size="large" style={styles.loader} />
-        ) : stats == null ? (
+        ) : stats == null || current == null ? (
           <View style={styles.emptyContainer}>
             <Icon name="chart-line-variant" size={64} color="rgba(180,160,255,0.4)" />
             <Text style={styles.emptyText}>No sessions yet</Text>
             <Text style={styles.emptySubText}>
-              Complete recordings to see your weekly insights
+              Complete an HRV recording to see your feedback
             </Text>
           </View>
         ) : (
           <>
-            {/* Top stat cards */}
-            <View style={styles.cardRow}>
-              <StatCard
-                icon="calendar-check"
-                label="Sessions"
-                value={stats.sessionCount.toString()}
-              />
-              <View style={styles.cardGap} />
-              <StatCard
-                icon="timer-outline"
-                label="Total Time"
-                value={formatDuration(stats.totalSeconds)}
-              />
-            </View>
-
-            {/* HRV Card */}
-            <View style={styles.bigCard}>
-              <View style={styles.bigCardHeader}>
-                <Icon name="heart-pulse" size={26} color={rmssdColor(hrv)} />
-                <Text style={styles.bigCardTitle}>Heart Rate Variability</Text>
+            {/* Activity summary */}
+            <View style={styles.summaryRow}>
+              <View style={styles.summaryChip}>
+                <Text style={styles.summaryChipValue}>{current.sessionCount}</Text>
+                <Text style={styles.summaryChipLabel}>Sessions</Text>
               </View>
-              {hrv != null ? (
-                <>
-                  <View style={styles.bigValueRow}>
-                    <Text style={[styles.bigValue, {color: rmssdColor(hrv)}]}>
-                      {hrv.toFixed(1)}
-                    </Text>
-                    <Text style={styles.bigUnit}>ms  RMSSD</Text>
-                  </View>
-                  <View
-                    style={[
-                      styles.statusBadge,
-                      {backgroundColor: `${rmssdColor(hrv)}22`, borderColor: rmssdColor(hrv)},
-                    ]}>
-                    <Text style={[styles.statusBadgeText, {color: rmssdColor(hrv)}]}>
-                      {rmssdLabel(hrv)}
-                    </Text>
-                  </View>
-                  <Text style={styles.bigCardSub}>
-                    {hrv > 50
-                      ? 'Great recovery. Your nervous system is well balanced this week.'
-                      : hrv > 30
-                      ? 'Moderate recovery. Consider more rest or lighter activity.'
-                      : 'Low HRV detected. Prioritize sleep and stress reduction.'}
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.noDataText}>
-                  Complete HRV recordings to see this metric
-                </Text>
-              )}
-            </View>
-
-            {/* HR Card */}
-            <View style={styles.bigCard}>
-              <View style={styles.bigCardHeader}>
-                <Icon name="heart" size={26} color={hrColor(hr)} />
-                <Text style={styles.bigCardTitle}>Average Heart Rate</Text>
+              <View style={styles.summaryChip}>
+                <Text style={styles.summaryChipValue}>{formatDuration(current.totalSeconds)}</Text>
+                <Text style={styles.summaryChipLabel}>Total Time</Text>
               </View>
-              {hr != null ? (
-                <>
-                  <View style={styles.bigValueRow}>
-                    <Text style={[styles.bigValue, {color: hrColor(hr)}]}>
-                      {hr.toFixed(0)}
-                    </Text>
-                    <Text style={styles.bigUnit}>bpm</Text>
-                  </View>
-                  <Text style={styles.bigCardSub}>
-                    {hr < 60
-                      ? 'Resting heart rate is low — excellent cardiovascular fitness.'
-                      : hr < 100
-                      ? 'Heart rate is in a healthy range for your sessions.'
-                      : 'Elevated average HR. Monitor stress levels and hydration.'}
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.noDataText}>
-                  Complete Amplitude recordings to see this metric
-                </Text>
-              )}
             </View>
 
-            {/* Encouragement panel */}
+            {/* Session Improvement — main focus */}
+            <View style={styles.mainCard}>
+              <Text style={styles.mainCardLabel}>SESSION IMPROVEMENT</Text>
+              <Text style={[styles.mainCardValue, {color: improvColor}]}>
+                {sessionImprovement != null ? formatPct(sessionImprovement) : '--'}
+              </Text>
+              <Text style={styles.mainCardSub}>
+                Avg change from start to end of each HRV session
+              </Text>
+              <View style={styles.divider} />
+              <Text style={styles.noteText}>{improvementNote(sessionImprovement)}</Text>
+            </View>
+
+            {/* Baseline RMSSD */}
+            <View style={styles.metricCard}>
+              <View style={styles.metricCardHeader}>
+                <Text style={styles.metricCardLabel}>BASELINE RMSSD</Text>
+                <Text style={styles.metricCardValue}>
+                  {baseline != null ? `${baseline.toFixed(1)} ms` : '--'}
+                </Text>
+              </View>
+              <Text style={styles.metricCardSub}>
+                Average RMSSD at the start of sessions this week
+              </Text>
+            </View>
+
+            {/* Week over week */}
+            <View style={styles.wowCard}>
+              <Text style={styles.wowTitle}>COMPARED TO LAST WEEK</Text>
+
+              <View style={styles.wowRow}>
+                <View style={styles.wowLeft}>
+                  <Text style={styles.wowRowLabel}>Baseline RMSSD</Text>
+                  <Text style={styles.wowRowNote}>{wowNote(baselineDelta, ' ms')}</Text>
+                </View>
+                <Text style={[styles.wowRowValue, {color: baselineDeltaColor}]}>
+                  {baselineDelta != null
+                    ? `${baselineDelta >= 0 ? '+' : ''}${baselineDelta.toFixed(1)} ms`
+                    : '--'}
+                </Text>
+              </View>
+
+              <View style={[styles.wowRow, {borderBottomWidth: 0}]}>
+                <View style={styles.wowLeft}>
+                  <Text style={styles.wowRowLabel}>Session Improvement</Text>
+                  <Text style={styles.wowRowNote}>{wowNote(improvementDelta, '%')}</Text>
+                </View>
+                <Text style={[styles.wowRowValue, {color: improvDeltaColor}]}>
+                  {improvementDelta != null
+                    ? `${improvementDelta >= 0 ? '+' : ''}${improvementDelta.toFixed(1)}%`
+                    : '--'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Encouragement */}
             <View style={styles.encourageCard}>
-              <Icon name="star-four-points" size={24} color="#FFD600" />
+              <Icon name="star-four-points" size={22} color="#FFD600" />
               <Text style={styles.encourageText}>
-                {stats.sessionCount >= 5
-                  ? "Amazing consistency! You've built a great streak this week."
-                  : stats.sessionCount >= 3
-                  ? "Good progress! Aim for 5+ sessions next week."
-                  : "Every session counts. Keep showing up!"}
+                {current.sessionCount >= 5
+                  ? "Great consistency this week."
+                  : current.sessionCount >= 3
+                  ? "Good effort — aim for 5+ sessions next week."
+                  : "Every session builds the picture."}
               </Text>
             </View>
           </>
@@ -321,84 +302,156 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 30,
   },
-  cardRow: {
+  // Activity summary row
+  summaryRow: {
     flexDirection: 'row',
+    gap: 12,
   },
-  cardGap: {width: 12},
-  bigCard: {
+  summaryChip: {
+    flex: 1,
+    backgroundColor: 'rgba(80, 55, 160, 0.55)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.2)',
+  },
+  summaryChipValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  summaryChipLabel: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.65)',
+    marginTop: 2,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  // Main focus card — session improvement
+  mainCard: {
     backgroundColor: 'rgba(80, 55, 160, 0.65)',
     borderRadius: 16,
-    padding: 20,
+    padding: 22,
     borderWidth: 1,
     borderColor: 'rgba(180, 150, 255, 0.25)',
-    gap: 10,
-  },
-  bigCardHeader: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
   },
-  bigCardTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: 'rgba(220, 200, 255, 0.9)',
-  },
-  bigValueRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  bigValue: {
-    fontSize: 52,
-    fontWeight: '800',
-    lineHeight: 58,
-  },
-  bigUnit: {
-    fontSize: 14,
+  mainCardLabel: {
+    fontSize: 12,
     color: 'rgba(200, 180, 255, 0.65)',
-    fontWeight: '600',
-    marginBottom: 10,
+    letterSpacing: 1,
+    fontWeight: '700',
+    marginBottom: 6,
   },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  statusBadgeText: {
-    fontSize: 13,
+  mainCardValue: {
+    fontSize: 60,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    lineHeight: 68,
   },
-  bigCardSub: {
-    fontSize: 14,
-    color: 'rgba(200, 180, 255, 0.7)',
-    lineHeight: 20,
-    marginTop: 2,
+  mainCardSub: {
+    fontSize: 13,
+    color: 'rgba(200, 180, 255, 0.6)',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  noDataText: {
-    fontSize: 14,
-    color: 'rgba(180, 160, 255, 0.5)',
-    fontStyle: 'italic',
-    paddingTop: 4,
+  divider: {
+    width: '60%',
+    height: 1,
+    backgroundColor: 'rgba(180, 150, 255, 0.2)',
+    marginVertical: 12,
   },
-  encourageCard: {
-    backgroundColor: 'rgba(100, 70, 200, 0.55)',
+  noteText: {
+    fontSize: 15,
+    color: 'rgba(220, 210, 255, 0.85)',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Baseline metric card
+  metricCard: {
+    backgroundColor: 'rgba(80, 55, 160, 0.55)',
     borderRadius: 14,
     padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.2)',
+  },
+  metricCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  metricCardLabel: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.65)',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  metricCardValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  metricCardSub: {
+    fontSize: 13,
+    color: 'rgba(200, 180, 255, 0.55)',
+    marginTop: 4,
+  },
+  // Week-over-week card
+  wowCard: {
+    backgroundColor: 'rgba(80, 55, 160, 0.55)',
+    borderRadius: 14,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.2)',
+    gap: 2,
+  },
+  wowTitle: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.65)',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  wowRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(180, 150, 255, 0.15)',
+  },
+  wowLeft: {flex: 1, paddingRight: 12},
+  wowRowLabel: {
+    fontSize: 15,
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  wowRowNote: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.55)',
+    marginTop: 2,
+  },
+  wowRowValue: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  // Encouragement
+  encourageCard: {
+    backgroundColor: 'rgba(100, 70, 200, 0.45)',
+    borderRadius: 14,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255, 214, 0, 0.25)',
+    borderColor: 'rgba(255, 214, 0, 0.2)',
   },
   encourageText: {
     flex: 1,
-    fontSize: 15,
-    color: 'rgba(255, 245, 200, 0.9)',
+    fontSize: 14,
+    color: 'rgba(255, 245, 200, 0.85)',
     fontWeight: '600',
-    lineHeight: 22,
+    lineHeight: 20,
   },
 });
 

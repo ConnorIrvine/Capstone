@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {
   Alert,
   View,
@@ -9,6 +9,7 @@ import {
   ImageBackground,
   ScrollView,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
@@ -26,6 +27,117 @@ interface Props {
   onBack: () => void;
   onInsights: () => void;
 }
+
+// ── Tiny sparkline chart built from plain Views ────────────────────────────
+interface SparkPoint {
+  label: string;
+  value: number | null;
+}
+
+const CHART_H = 80;
+const DOT_R = 5;
+
+const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> = ({
+  points,
+  color,
+  unit,
+}) => {
+  const screenWidth = Dimensions.get('window').width;
+  const chartW = screenWidth - 64; // horizontal padding from card edges
+
+  const valid = points.filter(p => p.value != null) as {label: string; value: number}[];
+  if (valid.length < 2) {
+    return (
+      <View style={{height: CHART_H, justifyContent: 'center', alignItems: 'center'}}>
+        <Text style={{color: 'rgba(180,160,255,0.45)', fontSize: 13}}>
+          Need 2+ weeks of data
+        </Text>
+      </View>
+    );
+  }
+
+  const values = valid.map(p => p.value);
+  const minV = Math.min(...values);
+  const maxV = Math.max(...values);
+  const range = maxV - minV || 1;
+
+  const toX = (i: number) =>
+    valid.length === 1 ? chartW / 2 : (i / (valid.length - 1)) * chartW;
+  const toY = (v: number) =>
+    DOT_R + ((maxV - v) / range) * (CHART_H - DOT_R * 2);
+
+  // Build connecting line segments
+  const segments: {x1: number; y1: number; x2: number; y2: number}[] = [];
+  for (let i = 0; i < valid.length - 1; i++) {
+    segments.push({
+      x1: toX(i),
+      y1: toY(valid[i].value),
+      x2: toX(i + 1),
+      y2: toY(valid[i + 1].value),
+    });
+  }
+
+  return (
+    <View>
+      <View style={{height: CHART_H, width: chartW, position: 'relative'}}>
+        {/* Line segments */}
+        {segments.map((seg, i) => {
+          const dx = seg.x2 - seg.x1;
+          const dy = seg.y2 - seg.y1;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+          return (
+            <View
+              key={`seg-${i}`}
+              style={{
+                position: 'absolute',
+                left: (seg.x1 + seg.x2) / 2 - length / 2,
+                top: (seg.y1 + seg.y2) / 2 - 1,
+                width: length,
+                height: 2,
+                backgroundColor: `${color}80`,
+                transform: [{rotate: `${angle}deg`}],
+              }}
+            />
+          );
+        })}
+        {/* Dots + value labels */}
+        {valid.map((p, i) => (
+          <View
+            key={`dot-${i}`}
+            style={{
+              position: 'absolute',
+              left: toX(i) - DOT_R,
+              top: toY(p.value) - DOT_R,
+              width: DOT_R * 2,
+              height: DOT_R * 2,
+              borderRadius: DOT_R,
+              backgroundColor: color,
+            }}
+          />
+        ))}
+      </View>
+      {/* X-axis labels */}
+      <View style={{flexDirection: 'row', width: chartW, position: 'relative', height: 18}}>
+        {valid.map((p, i) => (
+          <Text
+            key={`lbl-${i}`}
+            style={{
+              position: 'absolute',
+              left: toX(i) - 22,
+              width: 44,
+              textAlign: 'center',
+              fontSize: 10,
+              color: 'rgba(200,180,255,0.55)',
+            }}>
+            {p.label}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+};
+// ──────────────────────────────────────────────────────────────────────────
 
 const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
   const [weeks, setWeeks] = useState<{weekStart: Date; sessions: Session[]}[]>([]);
@@ -52,6 +164,27 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
       setWeekIndex(totalWeeks - 1);
     }
   }, [totalWeeks, weekIndex]);
+
+  // Build week-over-week sparkline data (oldest → newest)
+  const longTermPoints = useMemo(() => {
+    const sorted = [...weeks].reverse(); // oldest first
+    const improvPoints: SparkPoint[] = [];
+    const baselinePoints: SparkPoint[] = [];
+    for (const w of sorted) {
+      const label = formatWeekLabel(w.weekStart).replace(/\w+ /, '').replace(' - ', '-');
+      const improvVals = w.sessions
+        .filter(s => s.rmssdImprovementPct != null)
+        .map(s => s.rmssdImprovementPct as number);
+      const baselineVals = w.sessions
+        .filter(s => s.baselineRmssd != null)
+        .map(s => s.baselineRmssd as number);
+      const avg = (arr: number[]) =>
+        arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+      improvPoints.push({label, value: avg(improvVals)});
+      baselinePoints.push({label, value: avg(baselineVals)});
+    }
+    return {improvPoints, baselinePoints};
+  }, [weeks]);
 
   const handleDeleteSession = useCallback((session: Session) => {
     Alert.alert(
@@ -120,6 +253,30 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
           <Text style={styles.feedbackText}>This Week's Feedback</Text>
           <Icon name="arrow-right" size={28} color="#ffffff" />
         </TouchableOpacity>
+
+        {/* Long Term Tracking */}
+        {totalWeeks >= 1 && (
+          <View style={styles.trackingCard}>
+            <Text style={styles.trackingTitle}>LONG TERM TRACKING</Text>
+            <Text style={styles.trackingSubtitle}>Week-over-week averages</Text>
+
+            <Text style={styles.trackingMetricLabel}>Session Improvement (%)</Text>
+            <SparkLine
+              points={longTermPoints.improvPoints}
+              color="#00E676"
+              unit="%"
+            />
+
+            <View style={styles.trackingDivider} />
+
+            <Text style={styles.trackingMetricLabel}>Baseline RMSSD (ms)</Text>
+            <SparkLine
+              points={longTermPoints.baselinePoints}
+              color="#c0b0ff"
+              unit=" ms"
+            />
+          </View>
+        )}
 
         {/* Week Table */}
         <View style={styles.tableCard}>
@@ -249,6 +406,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(220, 200, 255, 0.9)',
     letterSpacing: 0.3,
+  },
+  trackingCard: {
+    backgroundColor: 'rgba(80, 55, 160, 0.65)',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.25)',
+  },
+  trackingTitle: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.65)',
+    letterSpacing: 0.8,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  trackingSubtitle: {
+    fontSize: 11,
+    color: 'rgba(180, 160, 255, 0.45)',
+    marginBottom: 14,
+  },
+  trackingMetricLabel: {
+    fontSize: 13,
+    color: 'rgba(200, 180, 255, 0.75)',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  trackingDivider: {
+    height: 1,
+    backgroundColor: 'rgba(180, 150, 255, 0.2)',
+    marginVertical: 14,
   },
   tableCard: {
     backgroundColor: 'rgba(80, 55, 160, 0.65)',

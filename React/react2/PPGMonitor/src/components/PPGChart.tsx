@@ -25,9 +25,21 @@ interface PPGChartProps {
     lastRxAge: number;
   }>;
   minimal?: boolean;
+  showStats?: boolean;
+  showYAxisLabels?: boolean;
+  showGridLines?: boolean;
 }
 
-const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef, minimal = false}) => {
+const PPGChart: React.FC<PPGChartProps> = ({
+  width,
+  height,
+  dataRef,
+  statsRef,
+  minimal = false,
+  showStats = true,
+  showYAxisLabels = true,
+  showGridLines = true,
+}) => {
   const [tick, setTick] = useState(0);
 
   const chartPadding = {top: 30, bottom: 30, left: 15, right: 15};
@@ -99,23 +111,25 @@ const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef, mi
         strokeWidth={1}
       />,
     );
-    gridElements.push(
-      <SkiaText
-        key={`label-${i}`}
-        x={chartPadding.left + 2}
-        y={yPx - 3}
-        text={Math.round(yVal).toString()}
-        font={font}
-        color="rgba(255,255,255,0.4)"
-      />,
-    );
+    if (showYAxisLabels) {
+      gridElements.push(
+        <SkiaText
+          key={`label-${i}`}
+          x={chartPadding.left + 2}
+          y={yPx - 3}
+          text={Math.round(yVal).toString()}
+          font={font}
+          color="rgba(255,255,255,0.4)"
+        />,
+      );
+    }
   }
 
   return (
     <View style={styles.container}>
       <Canvas style={{width, height}}>
         {/* Grid lines (hidden in minimal mode) */}
-        {!minimal && gridElements}
+        {!minimal && showGridLines && gridElements}
 
         {/* PPG signal line */}
         <SkiaPath
@@ -128,7 +142,7 @@ const PPGChart: React.FC<PPGChartProps> = ({width, height, dataRef, statsRef, mi
         />
 
         {/* Stats overlay (hidden in minimal mode) */}
-        {!minimal && (
+        {!minimal && showStats && (
           <SkiaText
             x={chartPadding.left + 5}
             y={chartPadding.top + 14}

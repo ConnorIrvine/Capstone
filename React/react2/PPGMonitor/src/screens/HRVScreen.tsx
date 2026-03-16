@@ -3,6 +3,7 @@ import {
   StyleSheet,
   View,
   Text,
+  Alert,
   TouchableOpacity,
   Dimensions,
   StatusBar,
@@ -48,7 +49,7 @@ const MAX_HISTORY = 10;
 const RATE_WINDOW_SEC = 5;
 
 const HRVScreen: React.FC = () => {
-  const [status, setStatus] = useState(bleService.connected ? 'Connected. Streaming...' : 'Idle');
+  const [status, setStatus] = useState('Ready');
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
@@ -62,6 +63,10 @@ const HRVScreen: React.FC = () => {
   const latestHRVRef = useRef<HRVResult | undefined>(undefined);
   const previousRmssdRef = useRef<number | null>(null);
   const windowCountRef = useRef(0);
+  const baselineRmssdRef = useRef<number | null>(null);
+  const hadConnectionRef = useRef(bleService.connected);
+  const disconnectHandledRef = useRef(false);
+  const disconnectedDuringSessionRef = useRef(false);
   const dataRef = useRef<number[]>([]);
   const statsRef = useRef({totalSamples: 0, rate: 0, lastRxAge: 0});
 
@@ -154,6 +159,11 @@ const HRVScreen: React.FC = () => {
       // Compute feedback status (mirrors program.py check_hrv_status)
       if (result.success && result.rmssd != null) {
         windowCountRef.current += 1;
+
+        if (baselineRmssdRef.current === null) {
+          baselineRmssdRef.current = result.rmssd;
+        }
+
         const status = checkHRVStatus(result.rmssd, previousRmssdRef.current);
         setFeedback({
           status,
@@ -181,15 +191,36 @@ const HRVScreen: React.FC = () => {
   useEffect(() => {
     bleService.addOnData('hrv', handleData);
     bleService.addOnStatusChange('hrv', (newStatus: string) => {
-      setStatus(newStatus);
       const connected = newStatus.includes('Streaming');
       setIsConnected(connected);
+
+      if (connected) {
+        hadConnectionRef.current = true;
+        disconnectHandledRef.current = false;
+        return;
+      }
+
+      if (!hadConnectionRef.current || disconnectHandledRef.current) {
+        return;
+      }
+
+      disconnectHandledRef.current = true;
+      disconnectedDuringSessionRef.current = disconnectedDuringSessionRef.current || isRecordingRef.current;
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      setStatus('Connection lost');
+
+      Alert.alert(
+        'Device disconnected',
+        'Connection lost. Returning to the main screen. This session was not saved.',
+        [{text: 'OK', onPress: exitSession}],
+        {cancelable: false},
+      );
     });
 
     // Sync initial connection state
     if (bleService.connected) {
       setIsConnected(true);
-      setStatus('Connected. Streaming...');
     }
 
     return () => {
@@ -237,10 +268,22 @@ const HRVScreen: React.FC = () => {
 
   const handleRecording = useCallback(() => {
     if (isRecording) {
+      if (disconnectedDuringSessionRef.current) {
+        disconnectedDuringSessionRef.current = false;
+        setStatus('Session canceled');
+        return;
+      }
+
       const endTime = Date.now();
       const durSeconds = Math.round((endTime - recordingStartTimeRef.current) / 1000);
       // Use ref to avoid stale closure on hrvHistory
       const latestRmssd = latestHRVRef.current?.rmssd;
+      const baselineRmssd = baselineRmssdRef.current;
+      const rmssdImprovementPct =
+        baselineRmssd != null && latestRmssd != null && baselineRmssd > 0
+          ? ((latestRmssd - baselineRmssd) / baselineRmssd) * 100
+          : undefined;
+
       saveSession({
         id: recordingStartTimeRef.current.toString(),
         type: 'hrv',
@@ -248,10 +291,13 @@ const HRVScreen: React.FC = () => {
         endTime,
         durSeconds,
         rmssd: latestRmssd,
+        baselineRmssd: baselineRmssd ?? undefined,
+        endRmssd: latestRmssd,
+        rmssdImprovementPct,
       });
       isRecordingRef.current = false;
       setIsRecording(false);
-      setStatus('Stopped');
+      setStatus('Session ended');
     } else {
       recordingStartTimeRef.current = Date.now();
       dataRef.current = [];
@@ -264,12 +310,14 @@ const HRVScreen: React.FC = () => {
       latestHRVRef.current = undefined;
       previousRmssdRef.current = null;
       windowCountRef.current = 0;
+      baselineRmssdRef.current = null;
+      disconnectedDuringSessionRef.current = false;
       setFeedback(null);
       setHrvHistory([]);
       setCollectedSeconds(0);
       isRecordingRef.current = true;
       setIsRecording(true);
-      setStatus('Recording...');
+      setStatus('Session active');
     }
   }, [isRecording]);
 

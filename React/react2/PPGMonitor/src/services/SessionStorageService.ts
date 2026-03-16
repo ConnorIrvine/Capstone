@@ -11,6 +11,9 @@ export interface Session {
   endTime: number;   // ms timestamp
   durSeconds: number;
   rmssd?: number;
+  baselineRmssd?: number;
+  endRmssd?: number;
+  rmssdImprovementPct?: number;
   meanHR?: number;
   meanAmplitude?: number;
 }

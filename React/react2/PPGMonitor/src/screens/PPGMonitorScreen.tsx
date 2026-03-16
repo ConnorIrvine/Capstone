@@ -151,6 +151,8 @@ const PPGMonitorScreen: React.FC<Props> = ({onBack}) => {
           height={chartHeight}
           dataRef={dataRef}
           statsRef={statsRef}
+          showStats
+          showYAxisLabels
         />
       </View>
 
