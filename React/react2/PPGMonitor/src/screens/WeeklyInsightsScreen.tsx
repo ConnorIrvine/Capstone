@@ -12,11 +12,14 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   loadSessions,
+  loadDemoSessions,
+  buildDemoSessions,
   groupByWeek,
   formatDuration,
   formatWeekLabel,
   Session,
 } from '../services/SessionStorageService';
+import {useAppContext} from '../context/AppContext';
 
 interface Props {
   onBack: () => void;
@@ -100,14 +103,21 @@ function wowNote(delta: number | null, unit: string): string {
 const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const {isDemoMode} = useAppContext();
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const sessions = await loadSessions();
+    let sessions;
+    if (isDemoMode) {
+      const stored = await loadDemoSessions();
+      sessions = [...buildDemoSessions(), ...stored];
+    } else {
+      sessions = await loadSessions();
+    }
     const groups = groupByWeek(sessions);
     setStats(computeStats(groups));
     setLoading(false);
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     reload();
@@ -151,6 +161,12 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
           )}
         </View>
       </View>
+
+      {isDemoMode && (
+        <View style={styles.demoBanner}>
+          <Text style={styles.demoBannerText}>DEMO MODE</Text>
+        </View>
+      )}
 
       <ScrollView
         style={styles.scroll}
@@ -452,6 +468,22 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 245, 200, 0.85)',
     fontWeight: '600',
     lineHeight: 20,
+  },
+  demoBanner: {
+    marginHorizontal: 16,
+    marginBottom: 4,
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 165, 0, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 200, 0, 0.45)',
+  },
+  demoBannerText: {
+    color: '#FFD600',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
   },
 });
 

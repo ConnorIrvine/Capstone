@@ -19,7 +19,7 @@ import {
   AmplitudeEvent,
   AmplitudeStopResult,
 } from '../services/AmplitudeService';
-import {saveSession} from '../services/SessionStorageService';
+import {saveSession, saveDemoSessionRecord} from '../services/SessionStorageService';
 import {useAppContext} from '../context/AppContext';
 import PPGChart from '../components/PPGChart';
 import AmplitudeCharts, {AmplitudeChartsData} from '../components/AmplitudeCharts';
@@ -41,7 +41,7 @@ const AmplitudeScreen: React.FC = () => {
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
-  const {apiUrl, exitSession} = useAppContext();
+  const {apiUrl, exitSession, isDemoMode} = useAppContext();
   const [currentHR, setCurrentHR] = useState<number | null>(null);
   const [latestAmplitude, setLatestAmplitude] = useState<number | null>(null);
   const [latestColor, setLatestColor] = useState<string>('green');
@@ -268,11 +268,12 @@ const AmplitudeScreen: React.FC = () => {
 
       const endTime = Date.now();
       const durSeconds = Math.round((endTime - recordingStartTimeRef.current) / 1000);
+      const save = isDemoMode ? saveDemoSessionRecord : saveSession;
       if (sessionIdRef.current) {
         try {
           const stopResult = await amplitudeStop(apiUrl, sessionIdRef.current);
           setSummary(stopResult);
-          saveSession({
+          save({
             id: recordingStartTimeRef.current.toString(),
             type: 'amplitude',
             startTime: recordingStartTimeRef.current,
@@ -283,7 +284,7 @@ const AmplitudeScreen: React.FC = () => {
           });
         } catch (e: any) {
           console.log('[Amplitude] stop error:', e.message);
-          saveSession({
+          save({
             id: recordingStartTimeRef.current.toString(),
             type: 'amplitude',
             startTime: recordingStartTimeRef.current,
@@ -346,7 +347,7 @@ const AmplitudeScreen: React.FC = () => {
             <TouchableOpacity onPress={exitSession} style={styles.backBtn} activeOpacity={0.7}>
               <Icon name="arrow-left" size={26} color="#ffffff" />
             </TouchableOpacity>
-            <Text style={styles.title}>HR Amplitude</Text>
+            <Text style={styles.title}>RSA Amplitude</Text>
           </View>
           <View style={styles.statusRow}>
             <View

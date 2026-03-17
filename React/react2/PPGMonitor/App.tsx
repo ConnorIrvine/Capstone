@@ -8,12 +8,13 @@ import AmplitudeScreen from './src/screens/AmplitudeScreen';
 import WelcomeScreen from './src/screens/WelcomeScreen';
 import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
 import WeeklyInsightsScreen from './src/screens/WeeklyInsightsScreen';
+import InstructionsScreen from './src/screens/InstructionsScreen';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {AppContextProvider, useAppContext} from './src/context/AppContext';
 
 const Tab = createBottomTabNavigator();
 
-type AppView = 'welcome' | 'session' | 'history' | 'insights' | 'developer';
+type AppView = 'welcome' | 'session' | 'history' | 'insights' | 'developer' | 'instructions';
 
 const TabNavigator: React.FC = () => (
   <NavigationContainer>
@@ -58,7 +59,7 @@ const TabNavigator: React.FC = () => (
 
 const AppInner: React.FC = () => {
   const [view, setView] = useState<AppView>('welcome');
-  const {setExitSession} = useAppContext();
+  const {setExitSession, isDemoMode, setIsDemoMode} = useAppContext();
 
   useEffect(() => {
     setExitSession(() => setView('welcome'));
@@ -86,7 +87,9 @@ const AppInner: React.FC = () => {
   if (view === 'insights') {
     return (
       <View style={styles.root}>
-        <WeeklyInsightsScreen onBack={() => setView('history')} />
+        <WeeklyInsightsScreen
+          onBack={() => setView('history')}
+        />
       </View>
     );
   }
@@ -99,12 +102,22 @@ const AppInner: React.FC = () => {
     );
   }
 
+  if (view === 'instructions') {
+    return (
+      <View style={styles.root}>
+        <InstructionsScreen onBack={() => setView('welcome')} />
+      </View>
+    );
+  }
+
   return (
     <View style={styles.root}>
       <WelcomeScreen
         onSessionStart={() => setView('session')}
         onSessionHistory={() => setView('history')}
         onDeveloperMode={() => setView('developer')}
+        onDemoMode={() => setIsDemoMode(!isDemoMode)}
+        onInstructions={() => setView('instructions')}
       />
     </View>
   );
