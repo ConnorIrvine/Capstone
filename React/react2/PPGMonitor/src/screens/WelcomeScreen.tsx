@@ -18,9 +18,10 @@ interface Props {
   onSessionHistory: () => void;
   onDeveloperMode: () => void;
   onDemoMode: () => void;
+  onInstructions: () => void;
 }
 
-const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDeveloperMode, onDemoMode}) => {
+const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDeveloperMode, onDemoMode, onInstructions}) => {
   const {isDemoMode} = useAppContext();
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -112,6 +113,14 @@ const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDev
             onPress={onSessionHistory}
             activeOpacity={0.8}>
             <Text style={styles.buttonText}>Session History</Text>
+          </TouchableOpacity>
+
+          {/* Instructions */}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={onInstructions}
+            activeOpacity={0.8}>
+            <Text style={styles.buttonText}>Instructions</Text>
           </TouchableOpacity>
         </View>
 

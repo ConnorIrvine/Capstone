@@ -347,7 +347,7 @@ const AmplitudeScreen: React.FC = () => {
             <TouchableOpacity onPress={exitSession} style={styles.backBtn} activeOpacity={0.7}>
               <Icon name="arrow-left" size={26} color="#ffffff" />
             </TouchableOpacity>
-            <Text style={styles.title}>HR Amplitude</Text>
+            <Text style={styles.title}>RSA Amplitude</Text>
           </View>
           <View style={styles.statusRow}>
             <View
