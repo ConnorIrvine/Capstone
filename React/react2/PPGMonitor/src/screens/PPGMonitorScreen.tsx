@@ -7,18 +7,26 @@ import {
   Dimensions,
   StatusBar,
   Platform,
-  SafeAreaView,
+  TextInput,
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import PPGChart from '../components/PPGChart';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {useAppContext} from '../context/AppContext';
 
 const WINDOW_SIZE = 600;
 const RATE_WINDOW_SEC = 5;
 
-const PPGMonitorScreen: React.FC = () => {
-  const [status, setStatus] = useState('Idle');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+interface Props {
+  onBack: () => void;
+}
+
+const PPGMonitorScreen: React.FC<Props> = ({onBack}) => {
+  const {apiUrl, setApiUrl} = useAppContext();
+  const [status, setStatus] = useState(bleService.connected ? 'Connected. Streaming...' : 'Idle');
+  const [isConnected, setIsConnected] = useState(bleService.connected);
+  const [isRecording, setIsRecording] = useState(false);
+  const isRecordingRef = useRef(false);
 
   // Use refs for high-frequency data to avoid React re-renders
   const dataRef = useRef<number[]>([]);
@@ -54,6 +62,7 @@ const PPGMonitorScreen: React.FC = () => {
 
   // Handle incoming PPG data - stored in ref to avoid re-renders
   const handleData = useCallback((samples: number[]) => {
+    if (!isRecordingRef.current) return;
     const data = dataRef.current;
     for (let i = 0; i < samples.length; i++) {
       data.push(samples[i]);
@@ -74,9 +83,6 @@ const PPGMonitorScreen: React.FC = () => {
       setStatus(newStatus);
       const connected = newStatus.includes('Streaming');
       setIsConnected(connected);
-      if (!connected) {
-        setIsConnecting(false);
-      }
     });
 
     return () => {
@@ -85,34 +91,34 @@ const PPGMonitorScreen: React.FC = () => {
     };
   }, [handleData]);
 
-  const handleConnect = useCallback(async () => {
-    if (isConnected) {
-      await bleService.disconnect();
-      setIsConnected(false);
-      return;
+  const handleRecording = useCallback(() => {
+    if (isRecording) {
+      isRecordingRef.current = false;
+      setIsRecording(false);
+      setStatus('Stopped');
+    } else {
+      dataRef.current = [];
+      statsRef.current = {totalSamples: 0, rate: 0, lastRxAge: 0};
+      rateCounterRef.current = 0;
+      rateWindowStartRef.current = Date.now();
+      isRecordingRef.current = true;
+      setIsRecording(true);
+      setStatus('Recording...');
     }
-
-    setIsConnecting(true);
-    // Reset data on new connection
-    dataRef.current = [];
-    statsRef.current = {totalSamples: 0, rate: 0, lastRxAge: 0};
-    rateCounterRef.current = 0;
-    rateWindowStartRef.current = Date.now();
-
-    try {
-      await bleService.scanAndConnect();
-    } catch (_error) {
-      setIsConnecting(false);
-    }
-  }, [isConnected]);
+  }, [isRecording]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#0d0d1a" />
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>PPG Live Monitor</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtn} activeOpacity={0.7}>
+            <Icon name="arrow-left" size={26} color="#ffffff" />
+          </TouchableOpacity>
+          <Text style={styles.title}>PPG Live Monitor</Text>
+        </View>
         <View style={styles.statusRow}>
           <View
             style={[
@@ -124,6 +130,20 @@ const PPGMonitorScreen: React.FC = () => {
         </View>
       </View>
 
+      {/* API URL */}
+      <View style={styles.apiRow}>
+        <Text style={styles.apiLabel}>API URL</Text>
+        <TextInput
+          style={styles.apiInput}
+          value={apiUrl}
+          onChangeText={setApiUrl}
+          placeholder="http://192.168.1.100:8000"
+          placeholderTextColor="#444466"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+      </View>
+
       {/* Chart */}
       <View style={styles.chartContainer}>
         <PPGChart
@@ -131,6 +151,8 @@ const PPGMonitorScreen: React.FC = () => {
           height={chartHeight}
           dataRef={dataRef}
           statsRef={statsRef}
+          showStats
+          showYAxisLabels
         />
       </View>
 
@@ -146,25 +168,21 @@ const PPGMonitorScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Connect Button */}
+      {/* Record Button */}
       <TouchableOpacity
         style={[
           styles.button,
-          isConnected ? styles.buttonDisconnect : styles.buttonConnect,
-          isConnecting && styles.buttonDisabled,
+          isRecording ? styles.buttonStop : styles.buttonRecord,
+          !isConnected && styles.buttonDisabled,
         ]}
-        onPress={handleConnect}
-        disabled={isConnecting}
+        onPress={handleRecording}
+        disabled={!isConnected}
         activeOpacity={0.7}>
         <Text style={styles.buttonText}>
-          {isConnecting
-            ? 'Connecting...'
-            : isConnected
-            ? 'Disconnect'
-            : 'Connect'}
+          {isRecording ? 'Stop Recording' : 'Start Recording'}
         </Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -184,10 +202,19 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 8,
-    paddingBottom: 12,
+    paddingBottom: 8,
+  },
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 4,
+  },
+  backBtn: {
+    padding: 4,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
@@ -195,7 +222,8 @@ const styles = StyleSheet.create({
   statusRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginTop: 2,
+    marginLeft: 38,
   },
   statusDot: {
     width: 8,
@@ -207,6 +235,31 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#aaaacc',
     fontFamily: 'monospace',
+  },
+  apiRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 8,
+    gap: 8,
+  },
+  apiLabel: {
+    fontSize: 12,
+    color: '#6666aa',
+    fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  apiInput: {
+    flex: 1,
+    backgroundColor: '#16162a',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    color: '#ccccee',
+    fontFamily: 'monospace',
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: '#2a2a4a',
   },
   chartContainer: {
     alignItems: 'center',
@@ -245,14 +298,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonConnect: {
+  buttonRecord: {
     backgroundColor: '#00C853',
   },
-  buttonDisconnect: {
+  buttonStop: {
     backgroundColor: '#FF5252',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   buttonText: {
     fontSize: 18,
