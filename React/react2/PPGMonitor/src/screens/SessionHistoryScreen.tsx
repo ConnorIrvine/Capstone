@@ -14,7 +14,10 @@ import {
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import {
   loadSessions,
+  loadDemoSessions,
+  buildDemoSessions,
   deleteSession,
+  deleteDemoSessionRecord,
   groupByWeek,
   formatDayLabel,
   formatTime,
@@ -22,6 +25,7 @@ import {
   formatWeekLabel,
   Session,
 } from '../services/SessionStorageService';
+import {useAppContext} from '../context/AppContext';
 
 interface Props {
   onBack: () => void;
@@ -43,7 +47,9 @@ const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> =
   unit,
 }) => {
   const screenWidth = Dimensions.get('window').width;
-  const chartW = screenWidth - 64; // horizontal padding from card edges
+  const YAXIS_W = 40;
+  const CARD_PAD = 18;
+  const chartW = screenWidth - 64 - YAXIS_W + CARD_PAD; // pull Y-axis to card left edge
 
   const valid = points.filter(p => p.value != null) as {label: string; value: number}[];
   if (valid.length < 2) {
@@ -61,8 +67,9 @@ const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> =
   const maxV = Math.max(...values);
   const range = maxV - minV || 1;
 
+  const DOT_PAD = 16; // inset first/last dot from chart edges
   const toX = (i: number) =>
-    valid.length === 1 ? chartW / 2 : (i / (valid.length - 1)) * chartW;
+    valid.length === 1 ? chartW / 2 : DOT_PAD + (i / (valid.length - 1)) * (chartW - DOT_PAD * 2);
   const toY = (v: number) =>
     DOT_R + ((maxV - v) / range) * (CHART_H - DOT_R * 2);
 
@@ -78,61 +85,94 @@ const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> =
   }
 
   return (
-    <View>
-      <View style={{height: CHART_H, width: chartW, position: 'relative'}}>
-        {/* Line segments */}
-        {segments.map((seg, i) => {
-          const dx = seg.x2 - seg.x1;
-          const dy = seg.y2 - seg.y1;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-          return (
-            <View
-              key={`seg-${i}`}
+    <View style={{flexDirection: 'row', alignItems: 'flex-start', marginLeft: -CARD_PAD}}>
+      {/* Y-axis labels */}
+      <View style={{width: YAXIS_W, height: CHART_H, justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 4}}>
+        <Text style={{fontSize: 9, color: 'rgba(200,180,255,0.5)', fontWeight: '600'}}>
+          {maxV % 1 === 0 ? maxV.toFixed(0) : maxV.toFixed(1)}
+        </Text>
+        <Text style={{fontSize: 9, color: 'rgba(200,180,255,0.5)', fontWeight: '600'}}>
+          {((maxV + minV) / 2) % 1 === 0 ? ((maxV + minV) / 2).toFixed(0) : ((maxV + minV) / 2).toFixed(1)}
+        </Text>
+        <Text style={{fontSize: 9, color: 'rgba(200,180,255,0.5)', fontWeight: '600'}}>
+          {minV % 1 === 0 ? minV.toFixed(0) : minV.toFixed(1)}
+        </Text>
+      </View>
+      <View>
+        <View style={{height: CHART_H, width: chartW, position: 'relative'}}>
+          {/* Line segments */}
+          {segments.map((seg, i) => {
+            const dx = seg.x2 - seg.x1;
+            const dy = seg.y2 - seg.y1;
+            const length = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+            return (
+              <View
+                key={`seg-${i}`}
+                style={{
+                  position: 'absolute',
+                  left: (seg.x1 + seg.x2) / 2 - length / 2,
+                  top: (seg.y1 + seg.y2) / 2 - 1,
+                  width: length,
+                  height: 2,
+                  backgroundColor: `${color}80`,
+                  transform: [{rotate: `${angle}deg`}],
+                }}
+              />
+            );
+          })}
+          {/* Dots + value labels */}
+          {valid.map((p, i) => {
+            const cx = toX(i);
+            const cy = toY(p.value);
+            const labelAbove = cy > 16;
+            return (
+              <React.Fragment key={`dot-${i}`}>
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: cx - DOT_R,
+                    top: cy - DOT_R,
+                    width: DOT_R * 2,
+                    height: DOT_R * 2,
+                    borderRadius: DOT_R,
+                    backgroundColor: color,
+                  }}
+                />
+                <Text
+                  style={{
+                    position: 'absolute',
+                    left: cx - 22,
+                    top: labelAbove ? cy - DOT_R - 14 : cy + DOT_R + 2,
+                    width: 44,
+                    textAlign: 'center',
+                    fontSize: 9,
+                    color: `${color}cc`,
+                    fontWeight: '700',
+                  }}>
+                  {p.value % 1 === 0 ? p.value.toFixed(0) : p.value.toFixed(1)}
+                </Text>
+              </React.Fragment>
+            );
+          })}
+        </View>
+        {/* X-axis labels */}
+        <View style={{flexDirection: 'row', width: chartW, position: 'relative', height: 18}}>
+          {valid.map((p, i) => (
+            <Text
+              key={`lbl-${i}`}
               style={{
                 position: 'absolute',
-                left: (seg.x1 + seg.x2) / 2 - length / 2,
-                top: (seg.y1 + seg.y2) / 2 - 1,
-                width: length,
-                height: 2,
-                backgroundColor: `${color}80`,
-                transform: [{rotate: `${angle}deg`}],
-              }}
-            />
-          );
-        })}
-        {/* Dots + value labels */}
-        {valid.map((p, i) => (
-          <View
-            key={`dot-${i}`}
-            style={{
-              position: 'absolute',
-              left: toX(i) - DOT_R,
-              top: toY(p.value) - DOT_R,
-              width: DOT_R * 2,
-              height: DOT_R * 2,
-              borderRadius: DOT_R,
-              backgroundColor: color,
-            }}
-          />
-        ))}
-      </View>
-      {/* X-axis labels */}
-      <View style={{flexDirection: 'row', width: chartW, position: 'relative', height: 18}}>
-        {valid.map((p, i) => (
-          <Text
-            key={`lbl-${i}`}
-            style={{
-              position: 'absolute',
-              left: toX(i) - 22,
-              width: 44,
-              textAlign: 'center',
-              fontSize: 10,
-              color: 'rgba(200,180,255,0.55)',
-            }}>
-            {p.label}
-          </Text>
-        ))}
+                left: toX(i) - 22,
+                width: 44,
+                textAlign: 'center',
+                fontSize: 10,
+                color: 'rgba(200,180,255,0.55)',
+              }}>
+              {p.label}
+            </Text>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -144,13 +184,20 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
   const [weekIndex, setWeekIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const {isDemoMode} = useAppContext();
 
   const reload = useCallback(async () => {
     setLoading(true);
-    const sessions = await loadSessions();
+    let sessions;
+    if (isDemoMode) {
+      const stored = await loadDemoSessions();
+      sessions = [...buildDemoSessions(), ...stored];
+    } else {
+      sessions = await loadSessions();
+    }
     setWeeks(groupByWeek(sessions));
     setLoading(false);
-  }, []);
+  }, [isDemoMode]);
 
   useEffect(() => {
     reload();
@@ -197,7 +244,11 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
           style: 'destructive',
           onPress: async () => {
             setDeletingId(session.id);
-            await deleteSession(session.id);
+            if (isDemoMode) {
+              await deleteDemoSessionRecord(session.id);
+            } else {
+              await deleteSession(session.id);
+            }
             await reload();
             setDeletingId(null);
           },

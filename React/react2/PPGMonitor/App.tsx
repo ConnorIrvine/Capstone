@@ -58,7 +58,7 @@ const TabNavigator: React.FC = () => (
 
 const AppInner: React.FC = () => {
   const [view, setView] = useState<AppView>('welcome');
-  const {setExitSession} = useAppContext();
+  const {setExitSession, isDemoMode, setIsDemoMode} = useAppContext();
 
   useEffect(() => {
     setExitSession(() => setView('welcome'));
@@ -86,7 +86,9 @@ const AppInner: React.FC = () => {
   if (view === 'insights') {
     return (
       <View style={styles.root}>
-        <WeeklyInsightsScreen onBack={() => setView('history')} />
+        <WeeklyInsightsScreen
+          onBack={() => setView('history')}
+        />
       </View>
     );
   }
@@ -105,6 +107,7 @@ const AppInner: React.FC = () => {
         onSessionStart={() => setView('session')}
         onSessionHistory={() => setView('history')}
         onDeveloperMode={() => setView('developer')}
+        onDemoMode={() => setIsDemoMode(!isDemoMode)}
       />
     </View>
   );
