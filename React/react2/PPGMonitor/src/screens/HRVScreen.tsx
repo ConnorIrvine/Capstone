@@ -17,6 +17,12 @@ import {saveSession} from '../services/SessionStorageService';
 import {useAppContext} from '../context/AppContext';
 import PPGChart from '../components/PPGChart';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import {
+  Canvas,
+  Path as SkiaPath,
+  Skia,
+  Circle,
+} from '@shopify/react-native-skia';
 
 // Mirror of program.py check_hrv_status
 function checkHRVStatus(current: number, previous: number | null): 0 | 1 | 2 {
@@ -38,7 +44,64 @@ interface FeedbackInfo {
   currentRmssd: number;
   previousRmssd: number | null;
   windowCount: number;
+  baselineRmssd: number | null;
 }
+
+type ViewMode = 'ppg' | 'hrv' | 'light';
+const VIEW_MODES: ViewMode[] = ['ppg', 'hrv', 'light'];
+const VIEW_MODE_ICON: Record<ViewMode, string> = {
+  ppg: 'chart-line',
+  hrv: 'chart-timeline-variant',
+  light: 'traffic-light',
+};
+
+interface HRVTrendProps { history: HRVResult[]; width: number; height: number; }
+const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height}) => {
+  const pad = {top: 12, bottom: 12, left: 12, right: 12};
+  const plotW = width - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
+  const successful = [...history].reverse().filter(h => h.success && h.rmssd != null);
+  if (successful.length === 0) {
+    return (
+      <View style={{width, height, alignItems: 'center', justifyContent: 'center'}}>
+        <Text style={{color: 'rgba(180,160,255,0.5)', fontFamily: 'monospace', fontSize: 13}}>
+          Collecting HRV data...
+        </Text>
+      </View>
+    );
+  }
+  const values = successful.map(h => h.rmssd as number);
+  const lo = Math.min(...values);
+  const hi = Math.max(...values);
+  const span = Math.max(hi - lo, 5);
+  const margin = span * 0.2;
+  const yMin = lo - margin;
+  const yMax = hi + margin;
+  const n = successful.length;
+  const xStep = n > 1 ? plotW / (n - 1) : plotW;
+  const toX = (i: number) => pad.left + i * xStep;
+  const toY = (v: number) => pad.top + plotH * (1 - (v - yMin) / (yMax - yMin));
+  const path = Skia.Path.Make();
+  successful.forEach((h, i) => {
+    const x = toX(i);
+    const y = toY(h.rmssd as number);
+    if (i === 0) path.moveTo(x, y);
+    else path.lineTo(x, y);
+  });
+  return (
+    <Canvas style={{width, height}}>
+      <SkiaPath path={path} style="stroke" strokeWidth={2} color="rgba(180,150,255,0.7)" />
+      {successful.map((h, i) => {
+        const x = toX(i);
+        const y = toY(h.rmssd as number);
+        const prev = i > 0 ? (successful[i - 1].rmssd as number) : null;
+        const dotColor =
+          prev === null ? '#9090ff' : (h.rmssd as number) >= prev ? '#00E676' : '#FF5252';
+        return <Circle key={i} cx={x} cy={y} r={6} color={dotColor} />;
+      })}
+    </Canvas>
+  );
+};
 
 const CHART_WINDOW = 600;
 const SAMPLING_RATE = 100;
@@ -58,6 +121,15 @@ const HRVScreen: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [collectedSeconds, setCollectedSeconds] = useState(0);
   const [feedback, setFeedback] = useState<FeedbackInfo | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('ppg');
+  const [badSegmentWarning, setBadSegmentWarning] = useState(false);
+
+  const cycleView = useCallback(() => {
+    setViewMode(m => {
+      const idx = VIEW_MODES.indexOf(m);
+      return VIEW_MODES[(idx + 1) % VIEW_MODES.length];
+    });
+  }, []);
 
   // Refs
   const latestHRVRef = useRef<HRVResult | undefined>(undefined);
@@ -73,6 +145,9 @@ const HRVScreen: React.FC = () => {
   // Rolling buffer for HRV analysis (last 30 seconds)
   const rollingBufferRef = useRef<number[]>([]);
   const sampleCountRef = useRef(0);
+  // When true, a bad segment was detected — block analysis until buffer refills
+  const badSegmentCooldownRef = useRef(false);
+  const badSegmentSampleCountRef = useRef(0);
 
   // Rate tracking
   const rateCounterRef = useRef(0);
@@ -127,6 +202,16 @@ const HRVScreen: React.FC = () => {
       rollingBufferRef.current = rolling.slice(-ROLLING_WINDOW_SAMPLES);
     }
 
+    // Count samples accumulated since last bad-segment flush
+    if (badSegmentCooldownRef.current) {
+      badSegmentSampleCountRef.current += samples.length;
+      if (badSegmentSampleCountRef.current >= ROLLING_WINDOW_SAMPLES) {
+        badSegmentCooldownRef.current = false;
+        badSegmentSampleCountRef.current = 0;
+        // Warning will clear on the next successful analysis
+      }
+    }
+
     // Update stats
     statsRef.current.totalSamples += samples.length;
     rateCounterRef.current += samples.length;
@@ -137,6 +222,10 @@ const HRVScreen: React.FC = () => {
   // Send data to API for HRV analysis
   const sendToAPI = useCallback(async () => {
     if (!isRecordingRef.current) {
+      return;
+    }
+    // Block analysis while waiting for fresh data after a bad segment
+    if (badSegmentCooldownRef.current) {
       return;
     }
     const buffer = rollingBufferRef.current;
@@ -156,8 +245,17 @@ const HRVScreen: React.FC = () => {
       if (result.success) {
         latestHRVRef.current = result;
       }
+      // Bad segment detected — flush buffer and wait for 30s of clean data
+      if (result.bad_segments > 0) {
+        rollingBufferRef.current = [];
+        badSegmentCooldownRef.current = true;
+        badSegmentSampleCountRef.current = 0;
+        setBadSegmentWarning(true);
+        return;
+      }
       // Compute feedback status (mirrors program.py check_hrv_status)
       if (result.success && result.rmssd != null) {
+        setBadSegmentWarning(false);
         windowCountRef.current += 1;
 
         if (baselineRmssdRef.current === null) {
@@ -170,6 +268,7 @@ const HRVScreen: React.FC = () => {
           currentRmssd: result.rmssd,
           previousRmssd: previousRmssdRef.current,
           windowCount: windowCountRef.current,
+          baselineRmssd: baselineRmssdRef.current,
         });
         previousRmssdRef.current = result.rmssd;
       }
@@ -312,16 +411,17 @@ const HRVScreen: React.FC = () => {
       windowCountRef.current = 0;
       baselineRmssdRef.current = null;
       disconnectedDuringSessionRef.current = false;
+      badSegmentCooldownRef.current = false;
+      badSegmentSampleCountRef.current = 0;
       setFeedback(null);
       setHrvHistory([]);
       setCollectedSeconds(0);
+      setBadSegmentWarning(false);
       isRecordingRef.current = true;
       setIsRecording(true);
       setStatus('Session active');
     }
   }, [isRecording]);
-
-  const latestHRV = hrvHistory.find(h => h.success);
 
   return (
     <ImageBackground
@@ -339,6 +439,10 @@ const HRVScreen: React.FC = () => {
               <Icon name="arrow-left" size={26} color="#ffffff" />
             </TouchableOpacity>
             <Text style={styles.title}>HRV Analysis</Text>
+            <View style={{flex: 1}} />
+            <TouchableOpacity onPress={cycleView} style={styles.cycleModeBtn} activeOpacity={0.7}>
+              <Icon name={VIEW_MODE_ICON[viewMode]} size={22} color="rgba(200,180,255,0.85)" />
+            </TouchableOpacity>
           </View>
           <View style={styles.statusRow}>
             <View
@@ -351,95 +455,84 @@ const HRVScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Chart */}
-        <View style={styles.chartContainer}>
-          <PPGChart
-            width={screenWidth - 16}
-            height={chartHeight}
-            dataRef={dataRef}
-            statsRef={statsRef}
-            minimal
-          />
-        </View>
-
-        {/* HRV Display */}
-        <View style={styles.hrvPanel}>
-          <Text style={styles.hrvTitle}>Heart Rate Variability (RMSSD)</Text>
-
-          {/* Current HRV */}
-          <View style={styles.currentHRV}>
-            {latestHRV ? (
-              <>
-                <Text style={styles.hrvValue}>
-                  {latestHRV.rmssd?.toFixed(1)}
-                </Text>
-                <Text style={styles.hrvUnit}>ms</Text>
-              </>
+        {/* Chart — mode-dependent */}
+        {viewMode !== 'light' && (
+          <View style={styles.chartContainer}>
+            {viewMode === 'ppg' ? (
+              <PPGChart
+                width={screenWidth - 16}
+                height={chartHeight}
+                dataRef={dataRef}
+                statsRef={statsRef}
+                minimal
+              />
             ) : (
-              <Text style={styles.hrvWaiting}>
-                {isConnected
-                  ? collectedSeconds < ROLLING_WINDOW_SEC
-                    ? `Collecting data... ${collectedSeconds}/${ROLLING_WINDOW_SEC}s`
-                    : isAnalyzing
-                    ? 'Analyzing...'
-                    : 'Waiting for first result...'
-                  : 'Connect to start'}
-              </Text>
+              <HRVTrendChart
+                history={hrvHistory}
+                width={screenWidth - 16}
+                height={chartHeight}
+              />
             )}
           </View>
+        )}
 
-          {isAnalyzing && latestHRV && (
-            <Text style={styles.analyzingText}>Analyzing...</Text>
-          )}
+        {/* Bad-segment warning badge */}
+        {badSegmentWarning && (
+          <View style={styles.badSegmentBadge}>
+            <Icon name="alert" size={14} color="#FFD600" style={{marginRight: 6}} />
+            <Text style={styles.badSegmentText}>Signal quality issue — recollecting 30s</Text>
+          </View>
+        )}
 
-          {/* History */}
-          {hrvHistory.length > 0 && (
-            <View style={styles.historySection}>
-              <Text style={styles.historyTitle}>Recent Readings</Text>
-              {hrvHistory.map((item, index) => (
-                <View key={item.timestamp} style={styles.historyRow}>
-                  <Text style={styles.historyTime}>
-                    {new Date(item.timestamp).toLocaleTimeString()}
-                  </Text>
-                  {item.success ? (
-                    <Text style={styles.historyValue}>
-                      {item.rmssd?.toFixed(1)} ms
-                    </Text>
-                  ) : (
-                    <Text style={styles.historyError}>
-                      {item.error}
-                    </Text>
-                  )}
-                  <Text style={styles.historySegments}>
-                    {item.bad_segments > 0
-                      ? `${item.bad_segments} bad seg`
-                      : ''}
-                  </Text>
-                </View>
-              ))}
+        {/* Traffic Light — full-page, no box */}
+        <View style={[styles.trafficLightWrapper, viewMode === 'light' && styles.trafficLightWrapperLarge]}>
+          {feedback !== null ? (
+            <View style={[styles.trafficLight, viewMode === 'light' && styles.trafficLightLarge]}>
+              <View style={[
+                styles.trafficBulb,
+                viewMode === 'light' && styles.trafficBulbLarge,
+                {backgroundColor: '#FF5252'},
+                feedback.status === 2
+                  ? {shadowColor: '#FF5252', shadowOpacity: 1, shadowRadius: 24, elevation: 14}
+                  : {opacity: 0.12},
+              ]} />
+              <View style={[
+                styles.trafficBulb,
+                viewMode === 'light' && styles.trafficBulbLarge,
+                {backgroundColor: '#FFD600'},
+                feedback.status === 1
+                  ? {shadowColor: '#FFD600', shadowOpacity: 1, shadowRadius: 24, elevation: 14}
+                  : {opacity: 0.12},
+              ]} />
+              <View style={[
+                styles.trafficBulb,
+                viewMode === 'light' && styles.trafficBulbLarge,
+                {backgroundColor: '#00E676'},
+                feedback.status === 0
+                  ? {shadowColor: '#00E676', shadowOpacity: 1, shadowRadius: 24, elevation: 14}
+                  : {opacity: 0.12},
+              ]} />
+            </View>
+          ) : (
+            <View style={[styles.trafficLight, viewMode === 'light' && styles.trafficLightLarge]}>
+              <View style={[styles.trafficBulb, viewMode === 'light' && styles.trafficBulbLarge, {backgroundColor: '#FF5252', opacity: 0.12}]} />
+              <View style={[styles.trafficBulb, viewMode === 'light' && styles.trafficBulbLarge, {backgroundColor: '#FFD600', opacity: 0.12}]} />
+              <View style={[styles.trafficBulb, viewMode === 'light' && styles.trafficBulbLarge, {backgroundColor: '#00E676', opacity: 0.12}]} />
             </View>
           )}
         </View>
 
-        {/* HRV Feedback Box — mirrors program.py display_feedback */}
-        {feedback !== null && (() => {
-          const fb = HRV_FEEDBACK[feedback.status];
-          const change = feedback.previousRmssd !== null
-            ? feedback.currentRmssd - feedback.previousRmssd
-            : null;
+        {/* Improvement % — centered above button */}
+        {feedback !== null && feedback.baselineRmssd != null && feedback.baselineRmssd > 0 && (() => {
+          const pct = ((feedback.currentRmssd - feedback.baselineRmssd) / feedback.baselineRmssd) * 100;
+          const improved = pct >= 0;
+          const color = improved ? '#00E676' : '#FF5252';
+          const bg = improved ? 'rgba(0,230,118,0.15)' : 'rgba(255,82,82,0.15)';
           return (
-            <View style={[styles.feedbackBox, {backgroundColor: fb.bg, borderColor: fb.color}]}>
-              <View style={styles.feedbackLeft}>
-                <Text style={[styles.feedbackSymbol, {color: fb.color}]}>{fb.symbol}</Text>
-              </View>
-              <View style={styles.feedbackBody}>
-                <Text style={[styles.feedbackMessage, {color: fb.color}]}>{fb.message}</Text>
-                <Text style={styles.feedbackDetail}>
-                  RMSSD: {feedback.currentRmssd.toFixed(1)} ms
-                  {change !== null ? `  |  Change: ${change >= 0 ? '+' : ''}${change.toFixed(1)} ms` : '  |  First reading'}
-                </Text>
-                <Text style={styles.feedbackWindow}>Window #{feedback.windowCount}</Text>
-              </View>
+            <View style={[styles.improvementBadge, {backgroundColor: bg, borderColor: color}]}>
+              <Text style={[styles.improvementPct, {color}]}>
+                {improved ? '+' : ''}{pct.toFixed(1)}%
+              </Text>
             </View>
           );
         })()}
@@ -631,7 +724,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   button: {
-    marginTop: 8,
     paddingVertical: 18,
     borderRadius: 12,
     alignItems: 'center',
@@ -656,6 +748,44 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     letterSpacing: 0.5,
   },
+  cycleModeBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: 'rgba(180,150,255,0.12)',
+  },
+  badSegmentBadge: {
+    flexDirection: 'row',
+    alignSelf: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,214,0,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,214,0,0.5)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  badSegmentText: {
+    color: '#FFD600',
+    fontSize: 12,
+    fontFamily: 'monospace',
+    fontWeight: '600',
+  },
+  trafficLightWrapperLarge: {
+    paddingVertical: 48,
+  },
+  trafficLightLarge: {
+    width: 160,
+    borderRadius: 80,
+    paddingVertical: 28,
+    paddingHorizontal: 18,
+    gap: 20,
+  },
+  trafficBulbLarge: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+  },
   // Header back button
   headerTop: {
     flexDirection: 'row',
@@ -664,47 +794,42 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   backBtn: {padding: 4},
-  // HRV Feedback Box
-  feedbackBox: {
-    borderRadius: 14,
-    borderWidth: 2,
-    padding: 16,
-    marginVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  feedbackLeft: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
+  trafficLightWrapper: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingVertical: 24,
   },
-  feedbackSymbol: {
-    fontSize: 26,
-    fontWeight: '900',
+  trafficLight: {
+    width: 130,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 65,
+    paddingVertical: 20,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    gap: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
   },
-  feedbackBody: {
-    flex: 1,
-    gap: 3,
+  trafficBulb: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
   },
-  feedbackMessage: {
-    fontSize: 14,
+  improvementBadge: {
+    alignSelf: 'center',
+    borderRadius: 10,
+    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  improvementPct: {
+    fontSize: 24,
     fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  feedbackDetail: {
-    fontSize: 13,
-    color: 'rgba(220, 200, 255, 0.85)',
     fontFamily: 'monospace',
-  },
-  feedbackWindow: {
-    fontSize: 11,
-    color: 'rgba(180, 160, 255, 0.55)',
-    fontFamily: 'monospace',
-    marginTop: 2,
   },
 });
 
