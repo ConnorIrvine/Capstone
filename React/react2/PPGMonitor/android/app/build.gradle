@@ -133,6 +133,8 @@ android {
             pickFirst "assets/fonts/Octicons.ttf"
             pickFirst "assets/fonts/SimpleLineIcons.ttf"
             pickFirst "assets/fonts/Zocial.ttf"
+            // reanimated and worklets both ship libworklets.so — pick one copy
+            pickFirst "**/libworklets.so"
         }
 }
 
