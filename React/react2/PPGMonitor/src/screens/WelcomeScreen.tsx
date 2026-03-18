@@ -11,14 +11,18 @@ import {
   Image,
 } from 'react-native';
 import {bleService} from '../services/BleService';
+import {useAppContext} from '../context/AppContext';
 
 interface Props {
   onSessionStart: () => void;
   onSessionHistory: () => void;
   onDeveloperMode: () => void;
+  onDemoMode: () => void;
+  onInstructions: () => void;
 }
 
-const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDeveloperMode}) => {
+const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDeveloperMode, onDemoMode, onInstructions}) => {
+  const {isDemoMode} = useAppContext();
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -54,6 +58,14 @@ const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDev
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
       <View style={styles.overlay} />
+
+      {/* Demo mode — subtle tap target in top-right corner */}
+      <TouchableOpacity
+        style={styles.demoButton}
+        onPress={onDemoMode}
+        activeOpacity={0.6}>
+        <Text style={[styles.demoButtonText, isDemoMode && styles.demoButtonTextActive]}>Demo</Text>
+      </TouchableOpacity>
 
       <View style={styles.content}>
         <View style={styles.titleContainer}>
@@ -101,6 +113,14 @@ const WelcomeScreen: React.FC<Props> = ({onSessionStart, onSessionHistory, onDev
             onPress={onSessionHistory}
             activeOpacity={0.8}>
             <Text style={styles.buttonText}>Session History</Text>
+          </TouchableOpacity>
+
+          {/* Instructions */}
+          <TouchableOpacity
+            style={styles.button}
+            onPress={onInstructions}
+            activeOpacity={0.8}>
+            <Text style={styles.buttonText}>Instructions</Text>
           </TouchableOpacity>
         </View>
 
@@ -179,6 +199,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.5,
+  },
+  demoButton: {
+    position: 'absolute',
+    top: 52,
+    right: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  demoButtonText: {
+    color: 'rgba(255,255,255,0.22)',
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: 0.4,
+  },
+  demoButtonTextActive: {
+    color: 'rgba(255,255,255,1)',
   },
 });
 

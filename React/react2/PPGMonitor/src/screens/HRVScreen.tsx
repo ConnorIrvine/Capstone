@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import {bleService} from '../services/BleService';
 import {analyzeHRV, HRVResult} from '../services/HRVService';
-import {saveSession} from '../services/SessionStorageService';
+import {saveSession, saveDemoSessionRecord} from '../services/SessionStorageService';
 import {useAppContext} from '../context/AppContext';
 import PPGChart from '../components/PPGChart';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -116,7 +116,7 @@ const HRVScreen: React.FC = () => {
   const [isConnected, setIsConnected] = useState(bleService.connected);
   const [isRecording, setIsRecording] = useState(false);
   const isRecordingRef = useRef(false);
-  const {apiUrl, exitSession} = useAppContext();
+  const {apiUrl, exitSession, isDemoMode} = useAppContext();
   const [hrvHistory, setHrvHistory] = useState<HRVResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [collectedSeconds, setCollectedSeconds] = useState(0);
@@ -383,7 +383,8 @@ const HRVScreen: React.FC = () => {
           ? ((latestRmssd - baselineRmssd) / baselineRmssd) * 100
           : undefined;
 
-      saveSession({
+      const save = isDemoMode ? saveDemoSessionRecord : saveSession;
+      save({
         id: recordingStartTimeRef.current.toString(),
         type: 'hrv',
         startTime: recordingStartTimeRef.current,

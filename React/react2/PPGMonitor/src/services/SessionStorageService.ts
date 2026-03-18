@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SESSIONS_KEY = '@calmcoach_sessions';
+const DEMO_SESSIONS_KEY = '@calmcoach_sessions_demo';
 
 export type SessionType = 'hrv' | 'amplitude' | 'ppg';
 
@@ -111,4 +112,63 @@ export function formatWeekLabel(weekStart: Date): string {
     return `${sMonth} ${weekStart.getDate()} - ${end.getDate()}`;
   }
   return `${sMonth} ${weekStart.getDate()} - ${eMonth} ${end.getDate()}`;
+}
+
+// ── Demo storage ───────────────────────────────────────────────────────────
+
+export function buildDemoSessions(): Session[] {
+  const now = new Date();
+  const day = now.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  const thisMonday = new Date(now);
+  thisMonday.setDate(now.getDate() + diff);
+  thisMonday.setHours(0, 0, 0, 0);
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setDate(thisMonday.getDate() - 7);
+
+  const m = thisMonday.getTime();
+  const lm = lastMonday.getTime();
+  const DAY = 86400000;
+  const H = (h: number) => h * 3600000;
+
+  return [
+    {id: 'demo-1', type: 'hrv', startTime: m + H(9),           endTime: m + H(9) + 360000,           durSeconds: 360, baselineRmssd: 38.4, rmssdImprovementPct: 8.6,  rmssd: 41.7},
+    {id: 'demo-2', type: 'hrv', startTime: m + DAY + H(7),     endTime: m + DAY + H(7) + 480000,     durSeconds: 480, baselineRmssd: 40.2, rmssdImprovementPct: 4.1,  rmssd: 41.8},
+    {id: 'demo-3', type: 'hrv', startTime: m + 2*DAY + H(12),  endTime: m + 2*DAY + H(12) + 300000,  durSeconds: 300, baselineRmssd: 42.5, rmssdImprovementPct: 5.8,  rmssd: 45.0},
+    {id: 'demo-4', type: 'hrv', startTime: lm + H(8),          endTime: lm + H(8) + 420000,          durSeconds: 420, baselineRmssd: 34.8, rmssdImprovementPct: 7.3,  rmssd: 37.3},
+    {id: 'demo-5', type: 'hrv', startTime: lm + DAY + H(20),   endTime: lm + DAY + H(20) + 360000,   durSeconds: 360, baselineRmssd: 36.2, rmssdImprovementPct: -1.9, rmssd: 35.5},
+    {id: 'demo-6', type: 'hrv', startTime: lm + 2*DAY + H(9),  endTime: lm + 2*DAY + H(9) + 540000,  durSeconds: 540, baselineRmssd: 35.1, rmssdImprovementPct: 6.2,  rmssd: 37.3},
+    {id: 'demo-7', type: 'hrv', startTime: lm + 3*DAY + H(7),  endTime: lm + 3*DAY + H(7) + 300000,  durSeconds: 300, baselineRmssd: 37.9, rmssdImprovementPct: 2.4,  rmssd: 38.8},
+    {id: 'demo-8', type: 'hrv', startTime: lm + 4*DAY + H(18), endTime: lm + 4*DAY + H(18) + 480000, durSeconds: 480, baselineRmssd: 38.6, rmssdImprovementPct: 9.0,  rmssd: 42.1},
+  ];
+}
+
+export async function loadDemoSessions(): Promise<Session[]> {
+  try {
+    const raw = await AsyncStorage.getItem(DEMO_SESSIONS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.warn('[SessionStorage] demo load error:', e);
+    return [];
+  }
+}
+
+export async function saveDemoSessionRecord(session: Session): Promise<void> {
+  try {
+    const existing = await loadDemoSessions();
+    const updated = [session, ...existing];
+    await AsyncStorage.setItem(DEMO_SESSIONS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('[SessionStorage] demo save error:', e);
+  }
+}
+
+export async function deleteDemoSessionRecord(sessionId: string): Promise<void> {
+  try {
+    const existing = await loadDemoSessions();
+    const updated = existing.filter(s => s.id !== sessionId);
+    await AsyncStorage.setItem(DEMO_SESSIONS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.warn('[SessionStorage] demo delete error:', e);
+  }
 }
