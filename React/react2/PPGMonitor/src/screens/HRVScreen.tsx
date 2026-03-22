@@ -60,11 +60,13 @@ const VIEW_MODE_ICON: Record<ViewMode, string> = {
   light: 'traffic-light',
 };
 
-interface HRVTrendProps { history: HRVResult[]; width: number; height: number; scrollable?: boolean; }
+interface HRVTrendProps { history: HRVResult[]; width: number; height: number; scrollable?: boolean; fullHistory?: HRVResult[]; }
 const MIN_POINT_SPACING = 64;
-const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height, scrollable}) => {
+const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height, scrollable, fullHistory}) => {
   const pad = {top: 24, bottom: 12, left: 24, right: 24};
-  const successful = [...history].reverse().filter(h => h.success && h.rmssd != null);
+  const successful = scrollable && fullHistory && fullHistory.length > 0
+    ? fullHistory.filter(h => h.success && h.rmssd != null)
+    : [...history].reverse().filter(h => h.success && h.rmssd != null);
   if (successful.length === 0) {
     return (
       <View style={{width, height, alignItems: 'center', justifyContent: 'center'}}>
@@ -199,6 +201,12 @@ const HRVScreen: React.FC = () => {
   const updateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const collectTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const recordingStartTimeRef = useRef<number>(0);
+  const isAnalyzingRef = useRef(false);
+  const fullHrvHistoryRef = useRef<HRVResult[]>([]);
+  const pendingSaveRef = useRef<{
+    id: string; startTime: number; endTime: number; durSeconds: number;
+    baselineRmssd: number | null; demoMode: boolean;
+  } | null>(null);
 
   const screenWidth = Dimensions.get('window').width;
   const chartHeight = 220;
@@ -276,6 +284,7 @@ const HRVScreen: React.FC = () => {
     }
 
     const windowData = buffer.slice(-ROLLING_WINDOW_SAMPLES);
+    isAnalyzingRef.current = true;
     setIsAnalyzing(true);
     console.log('[HRV] Sending', windowData.length, 'samples to', apiUrl);
     try {
@@ -285,6 +294,7 @@ const HRVScreen: React.FC = () => {
       // Update latest ref for session saving
       if (result.success) {
         latestHRVRef.current = result;
+        fullHrvHistoryRef.current = [...fullHrvHistoryRef.current, result];
       }
       // Bad segment detected — flush buffer and wait for 30s of clean data
       if (result.bad_segments > 0) {
@@ -323,7 +333,31 @@ const HRVScreen: React.FC = () => {
       };
       setHrvHistory(prev => [errorResult, ...prev].slice(0, MAX_HISTORY));
     } finally {
+      isAnalyzingRef.current = false;
       setIsAnalyzing(false);
+      // Complete a deferred session save if End Session was pressed while this call was in flight
+      if (pendingSaveRef.current && !isRecordingRef.current) {
+        const pending = pendingSaveRef.current;
+        pendingSaveRef.current = null;
+        const latestRmssd = latestHRVRef.current?.rmssd;
+        const baselineRmssd = pending.baselineRmssd;
+        const rmssdImprovementPct =
+          baselineRmssd != null && latestRmssd != null && baselineRmssd > 0
+            ? ((latestRmssd - baselineRmssd) / baselineRmssd) * 100
+            : undefined;
+        const saveFn = pending.demoMode ? saveDemoSessionRecord : saveSession;
+        saveFn({
+          id: pending.id,
+          type: 'hrv',
+          startTime: pending.startTime,
+          endTime: pending.endTime,
+          durSeconds: pending.durSeconds,
+          rmssd: latestRmssd,
+          baselineRmssd: baselineRmssd ?? undefined,
+          endRmssd: latestRmssd,
+          rmssdImprovementPct,
+        });
+      }
     }
   }, [apiUrl]);
 
@@ -416,27 +450,38 @@ const HRVScreen: React.FC = () => {
 
       const endTime = Date.now();
       const durSeconds = Math.round((endTime - recordingStartTimeRef.current) / 1000);
-      // Use ref to avoid stale closure on hrvHistory
-      const latestRmssd = latestHRVRef.current?.rmssd;
       const baselineRmssd = baselineRmssdRef.current;
-      const rmssdImprovementPct =
-        baselineRmssd != null && latestRmssd != null && baselineRmssd > 0
-          ? ((latestRmssd - baselineRmssd) / baselineRmssd) * 100
-          : undefined;
-
-      const save = isDemoMode ? saveDemoSessionRecord : saveSession;
-      save({
-        id: recordingStartTimeRef.current.toString(),
-        type: 'hrv',
-        startTime: recordingStartTimeRef.current,
-        endTime,
-        durSeconds,
-        rmssd: latestRmssd,
-        baselineRmssd: baselineRmssd ?? undefined,
-        endRmssd: latestRmssd,
-        rmssdImprovementPct,
-      });
       isRecordingRef.current = false;
+
+      if (isAnalyzingRef.current) {
+        // An API call is in flight — defer the save until it resolves so we capture the final RMSSD
+        pendingSaveRef.current = {
+          id: recordingStartTimeRef.current.toString(),
+          startTime: recordingStartTimeRef.current,
+          endTime,
+          durSeconds,
+          baselineRmssd,
+          demoMode: isDemoMode,
+        };
+      } else {
+        const latestRmssd = latestHRVRef.current?.rmssd;
+        const rmssdImprovementPct =
+          baselineRmssd != null && latestRmssd != null && baselineRmssd > 0
+            ? ((latestRmssd - baselineRmssd) / baselineRmssd) * 100
+            : undefined;
+        const save = isDemoMode ? saveDemoSessionRecord : saveSession;
+        save({
+          id: recordingStartTimeRef.current.toString(),
+          type: 'hrv',
+          startTime: recordingStartTimeRef.current,
+          endTime,
+          durSeconds,
+          rmssd: latestRmssd,
+          baselineRmssd: baselineRmssd ?? undefined,
+          endRmssd: latestRmssd,
+          rmssdImprovementPct,
+        });
+      }
       setIsRecording(false);
       setStatus('Session ended');
       setSessionSummary({
@@ -459,6 +504,8 @@ const HRVScreen: React.FC = () => {
       disconnectedDuringSessionRef.current = false;
       badSegmentCooldownRef.current = false;
       badSegmentSampleCountRef.current = 0;
+      pendingSaveRef.current = null;
+      fullHrvHistoryRef.current = [];
       setFeedback(null);
       setHrvHistory([]);
       setCollectedSeconds(0);
@@ -519,6 +566,7 @@ const HRVScreen: React.FC = () => {
                 width={screenWidth - 16}
                 height={chartHeight}
                 scrollable={!isRecording}
+                fullHistory={fullHrvHistoryRef.current}
               />
             )}
           </View>
