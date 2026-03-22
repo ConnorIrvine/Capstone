@@ -63,7 +63,7 @@ const VIEW_MODE_ICON: Record<ViewMode, string> = {
 interface HRVTrendProps { history: HRVResult[]; width: number; height: number; scrollable?: boolean; }
 const MIN_POINT_SPACING = 64;
 const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height, scrollable}) => {
-  const pad = {top: 24, bottom: 12, left: 12, right: 12};
+  const pad = {top: 24, bottom: 12, left: 24, right: 24};
   const successful = [...history].reverse().filter(h => h.success && h.rmssd != null);
   if (successful.length === 0) {
     return (
@@ -533,30 +533,45 @@ const HRVScreen: React.FC = () => {
         )}
 
         {/* Session summary — shown prominently when session ends */}
-        {!isRecording && sessionSummary && (
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryTitle}>SESSION COMPLETE</Text>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>BASELINE RMSSD</Text>
-              <Text style={styles.summaryBaselineValue}>
-                {sessionSummary.baselineRmssd != null
-                  ? `${sessionSummary.baselineRmssd.toFixed(1)} ms`
-                  : '—'}
-              </Text>
-            </View>
-            {sessionSummary.finalRmssd != null && (
+        {!isRecording && sessionSummary && (() => {
+          const finalRmssd = feedback?.currentRmssd ?? null;
+          const baseline = sessionSummary.baselineRmssd;
+          const pct =
+            baseline != null && baseline > 0 && finalRmssd != null
+              ? ((finalRmssd - baseline) / baseline) * 100
+              : null;
+          const improved = pct != null && pct >= 0;
+          return (
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>SESSION COMPLETE</Text>
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>FINAL RMSSD</Text>
-                <Text style={[
-                  styles.summaryValue,
-                  {color: sessionSummary.baselineRmssd != null && sessionSummary.finalRmssd >= sessionSummary.baselineRmssd ? '#00E676' : '#FF5252'},
-                ]}>
-                  {sessionSummary.finalRmssd.toFixed(1)} ms
+                <Text style={styles.summaryLabel}>BASELINE RMSSD</Text>
+                <Text style={styles.summaryBaselineValue}>
+                  {baseline != null ? `${baseline.toFixed(1)} ms` : '—'}
                 </Text>
               </View>
-            )}
-          </View>
-        )}
+              {finalRmssd != null && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>FINAL RMSSD</Text>
+                  <Text style={[
+                    styles.summaryValue,
+                    {color: baseline != null && finalRmssd >= baseline ? '#00E676' : '#FF5252'},
+                  ]}>
+                    {finalRmssd.toFixed(1)} ms
+                  </Text>
+                </View>
+              )}
+              {pct != null && (
+                <View style={[styles.summaryRow, {marginTop: 8}]}>
+                  <Text style={styles.summaryLabel}>IMPROVEMENT</Text>
+                  <Text style={[styles.summaryValue, {color: improved ? '#00E676' : '#FF5252', fontSize: 20}]}>
+                    {improved ? '+' : ''}{pct.toFixed(1)}%
+                  </Text>
+                </View>
+              )}
+            </View>
+          );
+        })()}
 
         {/* Traffic Light — full-page, no box */}
         <View style={[styles.trafficLightWrapper, viewMode === 'light' && styles.trafficLightWrapperLarge]}>
