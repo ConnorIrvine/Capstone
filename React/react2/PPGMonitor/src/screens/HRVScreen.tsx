@@ -47,6 +47,11 @@ interface FeedbackInfo {
   baselineRmssd: number | null;
 }
 
+interface SessionSummary {
+  baselineRmssd: number | null;
+  finalRmssd: number | null;
+}
+
 type ViewMode = 'ppg' | 'hrv' | 'light';
 const VIEW_MODES: ViewMode[] = ['ppg', 'hrv', 'light'];
 const VIEW_MODE_ICON: Record<ViewMode, string> = {
@@ -55,11 +60,10 @@ const VIEW_MODE_ICON: Record<ViewMode, string> = {
   light: 'traffic-light',
 };
 
-interface HRVTrendProps { history: HRVResult[]; width: number; height: number; }
-const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height}) => {
-  const pad = {top: 12, bottom: 12, left: 12, right: 12};
-  const plotW = width - pad.left - pad.right;
-  const plotH = height - pad.top - pad.bottom;
+interface HRVTrendProps { history: HRVResult[]; width: number; height: number; scrollable?: boolean; }
+const MIN_POINT_SPACING = 64;
+const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height, scrollable}) => {
+  const pad = {top: 24, bottom: 12, left: 12, right: 12};
   const successful = [...history].reverse().filter(h => h.success && h.rmssd != null);
   if (successful.length === 0) {
     return (
@@ -70,6 +74,11 @@ const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height}) => {
       </View>
     );
   }
+  const chartWidth = scrollable
+    ? Math.max(width, successful.length * MIN_POINT_SPACING + pad.left + pad.right)
+    : width;
+  const plotW = chartWidth - pad.left - pad.right;
+  const plotH = height - pad.top - pad.bottom;
   const values = successful.map(h => h.rmssd as number);
   const lo = Math.min(...values);
   const hi = Math.max(...values);
@@ -88,19 +97,50 @@ const HRVTrendChart: React.FC<HRVTrendProps> = ({history, width, height}) => {
     if (i === 0) path.moveTo(x, y);
     else path.lineTo(x, y);
   });
-  return (
-    <Canvas style={{width, height}}>
-      <SkiaPath path={path} style="stroke" strokeWidth={2} color="rgba(180,150,255,0.7)" />
+  const chartContent = (
+    <View style={{width: chartWidth, height}}>
+      <Canvas style={{width: chartWidth, height}}>
+        <SkiaPath path={path} style="stroke" strokeWidth={2} color="rgba(180,150,255,0.7)" />
+        {successful.map((h, i) => {
+          const x = toX(i);
+          const y = toY(h.rmssd as number);
+          const prev = i > 0 ? (successful[i - 1].rmssd as number) : null;
+          const dotColor =
+            prev === null ? '#9090ff' : (h.rmssd as number) >= prev ? '#00E676' : '#FF5252';
+          return <Circle key={i} cx={x} cy={y} r={6} color={dotColor} />;
+        })}
+      </Canvas>
       {successful.map((h, i) => {
         const x = toX(i);
         const y = toY(h.rmssd as number);
-        const prev = i > 0 ? (successful[i - 1].rmssd as number) : null;
-        const dotColor =
-          prev === null ? '#9090ff' : (h.rmssd as number) >= prev ? '#00E676' : '#FF5252';
-        return <Circle key={i} cx={x} cy={y} r={6} color={dotColor} />;
+        return (
+          <Text
+            key={`lbl-${i}`}
+            style={{
+              position: 'absolute',
+              left: x - 20,
+              top: Math.max(2, y - 22),
+              width: 40,
+              textAlign: 'center',
+              color: '#ffffff',
+              fontSize: 10,
+              fontFamily: 'monospace',
+              fontWeight: '600',
+            }}>
+            {(h.rmssd as number).toFixed(1)}
+          </Text>
+        );
       })}
-    </Canvas>
+    </View>
   );
+  if (scrollable) {
+    return (
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{width}}>
+        {chartContent}
+      </ScrollView>
+    );
+  }
+  return chartContent;
 };
 
 const CHART_WINDOW = 600;
@@ -123,6 +163,7 @@ const HRVScreen: React.FC = () => {
   const [feedback, setFeedback] = useState<FeedbackInfo | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('ppg');
   const [badSegmentWarning, setBadSegmentWarning] = useState(false);
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
 
   const cycleView = useCallback(() => {
     setViewMode(m => {
@@ -398,6 +439,10 @@ const HRVScreen: React.FC = () => {
       isRecordingRef.current = false;
       setIsRecording(false);
       setStatus('Session ended');
+      setSessionSummary({
+        baselineRmssd: baselineRmssd,
+        finalRmssd: latestRmssd ?? null,
+      });
     } else {
       recordingStartTimeRef.current = Date.now();
       dataRef.current = [];
@@ -418,6 +463,7 @@ const HRVScreen: React.FC = () => {
       setHrvHistory([]);
       setCollectedSeconds(0);
       setBadSegmentWarning(false);
+      setSessionSummary(null);
       isRecordingRef.current = true;
       setIsRecording(true);
       setStatus('Session active');
@@ -472,6 +518,7 @@ const HRVScreen: React.FC = () => {
                 history={hrvHistory}
                 width={screenWidth - 16}
                 height={chartHeight}
+                scrollable={!isRecording}
               />
             )}
           </View>
@@ -482,6 +529,32 @@ const HRVScreen: React.FC = () => {
           <View style={styles.badSegmentBadge}>
             <Icon name="alert" size={14} color="#FFD600" style={{marginRight: 6}} />
             <Text style={styles.badSegmentText}>Signal quality issue — recollecting 30s</Text>
+          </View>
+        )}
+
+        {/* Session summary — shown prominently when session ends */}
+        {!isRecording && sessionSummary && (
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>SESSION COMPLETE</Text>
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>BASELINE RMSSD</Text>
+              <Text style={styles.summaryBaselineValue}>
+                {sessionSummary.baselineRmssd != null
+                  ? `${sessionSummary.baselineRmssd.toFixed(1)} ms`
+                  : '—'}
+              </Text>
+            </View>
+            {sessionSummary.finalRmssd != null && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>FINAL RMSSD</Text>
+                <Text style={[
+                  styles.summaryValue,
+                  {color: sessionSummary.baselineRmssd != null && sessionSummary.finalRmssd >= sessionSummary.baselineRmssd ? '#00E676' : '#FF5252'},
+                ]}>
+                  {sessionSummary.finalRmssd.toFixed(1)} ms
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -830,6 +903,48 @@ const styles = StyleSheet.create({
   improvementPct: {
     fontSize: 24,
     fontWeight: '800',
+    fontFamily: 'monospace',
+  },
+  summaryCard: {
+    backgroundColor: 'rgba(40, 25, 80, 0.85)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.35)',
+    padding: 16,
+    marginVertical: 10,
+    marginHorizontal: 4,
+  },
+  summaryTitle: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.7)',
+    fontFamily: 'monospace',
+    fontWeight: '700',
+    letterSpacing: 1,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: 'rgba(180, 160, 255, 0.65)',
+    fontFamily: 'monospace',
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  summaryBaselineValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#B4A0FF',
+    fontFamily: 'monospace',
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: '700',
     fontFamily: 'monospace',
   },
 });
