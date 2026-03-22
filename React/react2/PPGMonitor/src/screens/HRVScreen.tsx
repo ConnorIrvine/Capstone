@@ -581,7 +581,8 @@ const HRVScreen: React.FC = () => {
 
         {/* Session summary — shown prominently when session ends */}
         {!isRecording && sessionSummary && (() => {
-          const finalRmssd = feedback?.currentRmssd ?? null;
+          const lastEntry = [...fullHrvHistoryRef.current].reverse().find(h => h.success && h.rmssd != null);
+          const finalRmssd = lastEntry?.rmssd ?? null;
           const baseline = sessionSummary.baselineRmssd;
           const pct =
             baseline != null && baseline > 0 && finalRmssd != null
