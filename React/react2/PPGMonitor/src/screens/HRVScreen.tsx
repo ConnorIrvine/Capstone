@@ -463,6 +463,8 @@ const HRVScreen: React.FC = () => {
           baselineRmssd,
           demoMode: isDemoMode,
         };
+        // Show the card now; finalRmssd will be read from feedback once the in-flight call resolves
+        setSessionSummary({baselineRmssd, finalRmssd: null});
       } else {
         const latestRmssd = latestHRVRef.current?.rmssd;
         const rmssdImprovementPct =
@@ -481,13 +483,10 @@ const HRVScreen: React.FC = () => {
           endRmssd: latestRmssd,
           rmssdImprovementPct,
         });
+        setSessionSummary({baselineRmssd, finalRmssd: latestRmssd ?? null});
       }
       setIsRecording(false);
       setStatus('Session ended');
-      setSessionSummary({
-        baselineRmssd: baselineRmssd,
-        finalRmssd: latestRmssd ?? null,
-      });
     } else {
       recordingStartTimeRef.current = Date.now();
       dataRef.current = [];
