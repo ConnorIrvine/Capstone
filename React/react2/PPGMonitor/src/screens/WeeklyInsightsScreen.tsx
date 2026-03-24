@@ -31,6 +31,7 @@ interface WeekStats {
   avgBaselineRmssd: number | null;
   avgSessionImprovementPct: number | null;
   avgHR: number | null;
+  avgAmplitude: number | null;
   weekLabel: string;
   sessions: Session[];
 }
@@ -54,6 +55,9 @@ function buildWeekStats(weekStart: Date, sessions: Session[]): WeekStats {
   const improvementVals = sessions
     .filter(s => s.rmssdImprovementPct != null)
     .map(s => s.rmssdImprovementPct as number);
+  const ampVals = sessions
+    .filter(s => s.meanAmplitude != null)
+    .map(s => s.meanAmplitude as number);
 
   return {
     sessionCount: sessions.length,
@@ -61,6 +65,7 @@ function buildWeekStats(weekStart: Date, sessions: Session[]): WeekStats {
     avgBaselineRmssd: average(baselineVals),
     avgSessionImprovementPct: average(improvementVals),
     avgHR: average(hrVals),
+    avgAmplitude: average(ampVals),
     weekLabel: formatWeekLabel(weekStart),
     sessions,
   };
@@ -128,6 +133,7 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
 
   const baseline = current?.avgBaselineRmssd ?? null;
   const sessionImprovement = current?.avgSessionImprovementPct ?? null;
+  const avgAmplitude = current?.avgAmplitude ?? null;
 
   const baselineDelta = wowDelta(
     current?.avgBaselineRmssd ?? null,
@@ -137,10 +143,15 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
     current?.avgSessionImprovementPct ?? null,
     previous?.avgSessionImprovementPct ?? null,
   );
+  const amplitudeDelta = wowDelta(
+    current?.avgAmplitude ?? null,
+    previous?.avgAmplitude ?? null,
+  );
 
   const improvColor = sessionImprovement != null && sessionImprovement >= 0 ? '#00E676' : '#FFD600';
   const baselineDeltaColor = baselineDelta == null ? '#c0b0ff' : baselineDelta >= 0 ? '#00E676' : '#FFD600';
   const improvDeltaColor = improvementDelta == null ? '#c0b0ff' : improvementDelta >= 0 ? '#00E676' : '#FFD600';
+  const amplitudeDeltaColor = amplitudeDelta == null ? '#c0b0ff' : amplitudeDelta >= 0 ? '#00E676' : '#FFD600';
 
   return (
     <ImageBackground
@@ -223,6 +234,19 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
               </Text>
             </View>
 
+            {/* RSA Amplitude */}
+            <View style={styles.metricCard}>
+              <View style={styles.metricCardHeader}>
+                <Text style={styles.metricCardLabel}>RSA AMPLITUDE</Text>
+                <Text style={[styles.metricCardValue, {color: '#FF9800'}]}>
+                  {avgAmplitude != null ? `${avgAmplitude.toFixed(1)} bpm` : '--'}
+                </Text>
+              </View>
+              <Text style={styles.metricCardSub}>
+                Average peak-to-trough heart rate swing during breathing
+              </Text>
+            </View>
+
             {/* Week over week */}
             <View style={styles.wowCard}>
               <Text style={styles.wowTitle}>COMPARED TO LAST WEEK</Text>
@@ -239,7 +263,7 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
                 </Text>
               </View>
 
-              <View style={[styles.wowRow, {borderBottomWidth: 0}]}>
+              <View style={styles.wowRow}>
                 <View style={styles.wowLeft}>
                   <Text style={styles.wowRowLabel}>Session Improvement</Text>
                   <Text style={styles.wowRowNote}>{wowNote(improvementDelta, '%')}</Text>
@@ -247,6 +271,18 @@ const WeeklyInsightsScreen: React.FC<Props> = ({onBack}) => {
                 <Text style={[styles.wowRowValue, {color: improvDeltaColor}]}>
                   {improvementDelta != null
                     ? `${improvementDelta >= 0 ? '+' : ''}${improvementDelta.toFixed(1)}%`
+                    : '--'}
+                </Text>
+              </View>
+
+              <View style={[styles.wowRow, {borderBottomWidth: 0}]}>
+                <View style={styles.wowLeft}>
+                  <Text style={styles.wowRowLabel}>RSA Amplitude</Text>
+                  <Text style={styles.wowRowNote}>{wowNote(amplitudeDelta, ' bpm')}</Text>
+                </View>
+                <Text style={[styles.wowRowValue, {color: amplitudeDeltaColor}]}>
+                  {amplitudeDelta != null
+                    ? `${amplitudeDelta >= 0 ? '+' : ''}${amplitudeDelta.toFixed(1)} bpm`
                     : '--'}
                 </Text>
               </View>

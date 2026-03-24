@@ -135,11 +135,13 @@ export function buildDemoSessions(): Session[] {
     {id: 'demo-1', type: 'hrv', startTime: m + H(9),           endTime: m + H(9) + 360000,           durSeconds: 360, baselineRmssd: 38.4, rmssdImprovementPct: 8.6,  rmssd: 41.7},
     {id: 'demo-2', type: 'hrv', startTime: m + DAY + H(7),     endTime: m + DAY + H(7) + 480000,     durSeconds: 480, baselineRmssd: 40.2, rmssdImprovementPct: 4.1,  rmssd: 41.8},
     {id: 'demo-3', type: 'hrv', startTime: m + 2*DAY + H(12),  endTime: m + 2*DAY + H(12) + 300000,  durSeconds: 300, baselineRmssd: 42.5, rmssdImprovementPct: 5.8,  rmssd: 45.0},
+    {id: 'demo-3a', type: 'amplitude', startTime: m + 3*DAY + H(10), endTime: m + 3*DAY + H(10) + 300000, durSeconds: 300, meanAmplitude: 6.8, meanHR: 72},
     {id: 'demo-4', type: 'hrv', startTime: lm + H(8),          endTime: lm + H(8) + 420000,          durSeconds: 420, baselineRmssd: 34.8, rmssdImprovementPct: 7.3,  rmssd: 37.3},
     {id: 'demo-5', type: 'hrv', startTime: lm + DAY + H(20),   endTime: lm + DAY + H(20) + 360000,   durSeconds: 360, baselineRmssd: 36.2, rmssdImprovementPct: -1.9, rmssd: 35.5},
     {id: 'demo-6', type: 'hrv', startTime: lm + 2*DAY + H(9),  endTime: lm + 2*DAY + H(9) + 540000,  durSeconds: 540, baselineRmssd: 35.1, rmssdImprovementPct: 6.2,  rmssd: 37.3},
     {id: 'demo-7', type: 'hrv', startTime: lm + 3*DAY + H(7),  endTime: lm + 3*DAY + H(7) + 300000,  durSeconds: 300, baselineRmssd: 37.9, rmssdImprovementPct: 2.4,  rmssd: 38.8},
     {id: 'demo-8', type: 'hrv', startTime: lm + 4*DAY + H(18), endTime: lm + 4*DAY + H(18) + 480000, durSeconds: 480, baselineRmssd: 38.6, rmssdImprovementPct: 9.0,  rmssd: 42.1},
+    {id: 'demo-9', type: 'amplitude', startTime: lm + 5*DAY + H(11), endTime: lm + 5*DAY + H(11) + 360000, durSeconds: 360, meanAmplitude: 5.4, meanHR: 74},
   ];
 }
 

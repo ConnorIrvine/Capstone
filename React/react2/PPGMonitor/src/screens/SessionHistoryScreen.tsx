@@ -217,6 +217,7 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
     const sorted = [...weeks].reverse(); // oldest first
     const improvPoints: SparkPoint[] = [];
     const baselinePoints: SparkPoint[] = [];
+    const amplitudePoints: SparkPoint[] = [];
     for (const w of sorted) {
       const label = formatWeekLabel(w.weekStart).replace(/\w+ /, '').replace(' - ', '-');
       const improvVals = w.sessions
@@ -225,12 +226,16 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
       const baselineVals = w.sessions
         .filter(s => s.baselineRmssd != null)
         .map(s => s.baselineRmssd as number);
+      const ampVals = w.sessions
+        .filter(s => s.meanAmplitude != null)
+        .map(s => s.meanAmplitude as number);
       const avg = (arr: number[]) =>
         arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
       improvPoints.push({label, value: avg(improvVals)});
       baselinePoints.push({label, value: avg(baselineVals)});
+      amplitudePoints.push({label, value: avg(ampVals)});
     }
-    return {improvPoints, baselinePoints};
+    return {improvPoints, baselinePoints, amplitudePoints};
   }, [weeks]);
 
   const handleDeleteSession = useCallback((session: Session) => {
@@ -259,15 +264,22 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
 
   const buildRows = () => {
     if (!currentWeek) return [];
-    const rows: {session: Session; dayLabel: string; time: string; duration: string}[] = [];
+    const rows: {session: Session; dayLabel: string; time: string; duration: string; detail: string}[] = [];
     let lastDay = '';
     for (const s of currentWeek.sessions) {
       const dayLabel = formatDayLabel(s.startTime);
+      let detail = '';
+      if (s.type === 'amplitude' && s.meanAmplitude != null) {
+        detail = `Amp ${s.meanAmplitude.toFixed(1)}`;
+      } else if (s.rmssdImprovementPct != null) {
+        detail = `${s.rmssdImprovementPct >= 0 ? '+' : ''}${s.rmssdImprovementPct.toFixed(1)}%`;
+      }
       rows.push({
         session: s,
         dayLabel: dayLabel !== lastDay ? dayLabel : '',
         time: formatTime(s.startTime),
         duration: formatDuration(s.durSeconds),
+        detail,
       });
       lastDay = dayLabel;
     }
@@ -326,6 +338,15 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
               color="#c0b0ff"
               unit=" ms"
             />
+
+            <View style={styles.trackingDivider} />
+
+            <Text style={styles.trackingMetricLabel}>Mean RSA Amplitude (bpm)</Text>
+            <SparkLine
+              points={longTermPoints.amplitudePoints}
+              color="#FF9800"
+              unit=" bpm"
+            />
           </View>
         )}
 
@@ -368,6 +389,11 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
                   <Text style={[styles.cell, styles.cellDay]}>{row.dayLabel}</Text>
                   <Text style={[styles.cell, styles.cellTime]}>{row.time}</Text>
                   <Text style={[styles.cell, styles.cellDur]}>{row.duration}</Text>
+                  {row.detail !== '' && (
+                    <Text style={[styles.cell, styles.cellDetail,
+                      row.session.type === 'amplitude' ? {color: '#FF9800'} : {color: '#00E676'},
+                    ]}>{row.detail}</Text>
+                  )}
                   <TouchableOpacity
                     style={styles.deleteBtn}
                     onPress={() => handleDeleteSession(row.session)}
@@ -543,7 +569,8 @@ const styles = StyleSheet.create({
   cell: {fontSize: 16, color: '#ffffff', fontWeight: '600'},
   cellDay: {flex: 1.2},
   cellTime: {flex: 1, textAlign: 'center'},
-  cellDur: {flex: 0.9, textAlign: 'right'},
+  cellDur: {flex: 0.8, textAlign: 'right'},
+  cellDetail: {flex: 0.8, textAlign: 'right', fontSize: 13, fontWeight: '700'},
   deleteBtn: {
     marginLeft: 10,
     paddingHorizontal: 4,
