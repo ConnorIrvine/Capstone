@@ -44,11 +44,12 @@ const AmplitudeCharts: React.FC<Props> = ({viewportWidth, height, dataRef, isStr
   const [tick, setTick] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
 
-  // Re-render at ~4 fps (charts update ~1 Hz from API, no need for 30 fps)
+  // Re-render at ~4 fps while streaming only (no new data when session is ended)
   useEffect(() => {
+    if (!isStreaming) return;
     const interval = setInterval(() => setTick(t => t + 1), 250);
     return () => clearInterval(interval);
-  }, []);
+  }, [isStreaming]);
 
   const pad = {top: 18, bottom: 14, left: 44, right: 12};
 
@@ -117,7 +118,7 @@ const AmplitudeCharts: React.FC<Props> = ({viewportWidth, height, dataRef, isStr
     if (isStreaming && scrollRef.current && canvasW > viewportWidth) {
       scrollRef.current.scrollToEnd({animated: false});
     }
-  });
+  }, [isStreaming, canvasW, viewportWidth]);
 
   // ─── Build elements for each chart ────────────────────────
   const elements: React.ReactNode[] = [];
