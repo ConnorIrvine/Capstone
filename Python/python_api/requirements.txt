@@ -4,3 +4,7 @@ numpy
 neurokit2
 pandas
 scipy
+cryptography
+python-dotenv
+scipy
+cryptography

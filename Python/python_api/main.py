@@ -6,8 +6,9 @@ from PPG (photoplethysmography) signal data with signal quality assessment,
 and real-time HR amplitude (RSA) biofeedback via session-based endpoints.
 """
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from pydantic import BaseModel, Field, field_validator
 from typing import Dict, List, Optional
 from collections import deque
@@ -17,6 +18,9 @@ import neurokit2 as nk
 from scipy.signal import find_peaks
 import os
 import warnings
+from dotenv import load_dotenv
+
+load_dotenv()  # loads .env from the current directory
 
 # Suppress warnings from neurokit2
 warnings.filterwarnings("ignore")
@@ -82,6 +86,22 @@ def _get_allowed_origins() -> List[str]:
 
 
 allowed_origins = _get_allowed_origins()
+
+# ── HTTPS enforcement ────────────────────────────────────────────────────────
+# Redirects any plain HTTP request to HTTPS (308 Permanent Redirect).
+# Set ENFORCE_HTTPS=false when a TLS-terminating proxy (nginx, ALB, etc.)
+# already handles redirection upstream.
+if os.getenv("ENFORCE_HTTPS", "true").lower() not in ("false", "0", "no"):
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+
+@app.middleware("http")
+async def add_hsts_header(request: Request, call_next) -> Response:
+    """Add HTTP Strict-Transport-Security to every response."""
+    response = await call_next(request)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -700,4 +720,13 @@ async def amplitude_stop(request: AmplitudeStopRequest):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    ssl_certfile = os.getenv("SSL_CERTFILE")  # e.g. /etc/ssl/certs/server.crt
+    ssl_keyfile = os.getenv("SSL_KEYFILE")    # e.g. /etc/ssl/private/server.key
+
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=int(os.getenv("PORT", "8443")),
+        ssl_certfile=ssl_certfile or None,
+        ssl_keyfile=ssl_keyfile or None,
+    )

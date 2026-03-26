@@ -2,3 +2,8 @@
 build/
 dist/
 hrv_api.spec
+
+# Secrets
+.env
+server.crt
+server.key
