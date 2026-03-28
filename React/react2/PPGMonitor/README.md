@@ -97,6 +97,44 @@ To generate and install a release APK:
 5. Tap **Connect** in the app
 6. Place your finger on the pulse sensor — the PPG waveform appears in real time
 
+## HTTPS / Self-Signed Certificate Setup
+
+The app connects to your local API server over HTTPS. Because the server uses a **self-signed certificate**, you must bundle it into the APK before building. The certificate is excluded from Git (`.gitignore`) and must be regenerated whenever the server cert changes.
+
+### 1. Fetch the certificate from your running server
+
+Run the following from the **root of the project** (`PPGMonitor/`) with your server running:
+
+```powershell
+# Run from: PPGMonitor/  (NOT from inside the android/ folder)
+New-Item -ItemType Directory -Force "android\app\src\main\res\raw" | Out-Null
+$tcpClient = New-Object System.Net.Sockets.TcpClient("{YOURIP}", 8000)
+$sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, {$true})
+$sslStream.AuthenticateAsClient("{YOURIP}")
+$cert = $sslStream.RemoteCertificate
+$bytes = $cert.Export([System.Security.Cryptography.X509Certificates.X509ContentType]::Cert)
+[System.IO.File]::WriteAllBytes("$PWD\android\app\src\main\res\raw\server_cert.crt", $bytes)
+$sslStream.Close(); $tcpClient.Close()
+Write-Host "Certificate saved!"
+```
+
+Replace `{YOURIP}` with the IP address of your server (e.g. `192.168.0.70`).
+
+The cert will be saved to `android/app/src/main/res/raw/server_cert.crt`.
+
+### 2. Build the APK
+
+After the cert is in place, build normally:
+
+```bash
+# Run from: PPGMonitor/android/
+./gradlew assembleRelease
+```
+
+The bundled cert is trusted automatically — **no manual installation on the device is needed**.
+
+> **Note:** If your server certificate ever regenerates, repeat Step 1 and rebuild the APK.
+
 ## Project Structure
 
 ```

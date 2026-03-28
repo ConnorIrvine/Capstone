@@ -33,6 +33,9 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+
+# Server certificate (environment-specific, regenerate with fetch command)
+android/app/src/main/res/raw/server_cert.crt
 .kotlin/
 
 # node.js
