@@ -137,7 +137,7 @@ const PPGMonitorScreen: React.FC<Props> = ({onBack}) => {
           style={styles.apiInput}
           value={apiUrl}
           onChangeText={setApiUrl}
-          placeholder="http://192.168.1.100:8000"
+          placeholder="https://192.168.1.100:8000"
           placeholderTextColor="#444466"
           autoCapitalize="none"
           autoCorrect={false}
