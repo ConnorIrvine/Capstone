@@ -4,6 +4,7 @@ import {
   View,
   Text,
   Alert,
+  Modal,
   TouchableOpacity,
   Dimensions,
   StatusBar,
@@ -16,7 +17,6 @@ import {
   amplitudeStart,
   amplitudeSendData,
   amplitudeStop,
-  AmplitudeEvent,
   AmplitudeStopResult,
 } from '../services/AmplitudeService';
 import {saveSession, saveDemoSessionRecord} from '../services/SessionStorageService';
@@ -28,7 +28,6 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 
 const CHART_WINDOW = 600;
 const SEND_INTERVAL_MS = 1000; // send data every 1 second
-const MAX_EVENT_HISTORY = 20;
 
 const FEEDBACK_COLORS: Record<string, string> = {
   green: '#00E676',
@@ -47,8 +46,11 @@ const AmplitudeScreen: React.FC = () => {
   const [latestColor, setLatestColor] = useState<string>('green');
   const [latestBreathingRate, setLatestBreathingRate] = useState<number | null>(null);
   const [signalQuality, setSignalQuality] = useState('ACTIVE');
-  const [eventHistory, setEventHistory] = useState<AmplitudeEvent[]>([]);
+
   const [summary, setSummary] = useState<AmplitudeStopResult | null>(null);
+  const [isPPGVisible, setIsPPGVisible] = useState(true);
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
+  const [isInfoVisible, setIsInfoVisible] = useState(false);
 
   // Data refs
   const dataRef = useRef<number[]>([]);
@@ -165,9 +167,6 @@ const AmplitudeScreen: React.FC = () => {
         setLatestAmplitude(latest.amplitude);
         setLatestColor(latest.feedback_color);
         setLatestBreathingRate(latest.breathing_rate_bpm);
-        setEventHistory(prev =>
-          [...result.events, ...prev].slice(0, MAX_EVENT_HISTORY),
-        );
       }
     } catch (e: any) {
       console.log('[Amplitude] send error:', e.message);
@@ -313,7 +312,6 @@ const AmplitudeScreen: React.FC = () => {
     setLatestColor('green');
     setLatestBreathingRate(null);
     setSignalQuality('ACTIVE');
-    setEventHistory([]);
     disconnectedDuringSessionRef.current = false;
 
     try {
@@ -330,6 +328,10 @@ const AmplitudeScreen: React.FC = () => {
     }
   }, [isRecording, apiUrl]);
 
+  const showAmplitudeInfo = useCallback(() => {
+    setIsInfoVisible(true);
+  }, []);
+
   const isBadSignal = signalQuality.includes('PAUSED');
 
   return (
@@ -337,6 +339,31 @@ const AmplitudeScreen: React.FC = () => {
       source={require('../assets/images/background2.jpg')}
       style={styles.container}
       resizeMode="cover">
+
+      {/* Info Modal */}
+      <Modal
+        visible={isInfoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsInfoVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsInfoVisible(false)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>RSA Amplitude</Text>
+            <Text style={styles.modalBody}>
+              {'Sync your breathing to the heart rate graph:\n\n↑  Breathe IN as the graph rises\n↓  Breathe OUT as it falls\n\nAim for ~5-second inhales and exhales.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={() => setIsInfoVisible(false)}
+              activeOpacity={0.7}>
+              <Text style={styles.modalBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
       <View style={styles.bgOverlay} />
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
@@ -348,30 +375,45 @@ const AmplitudeScreen: React.FC = () => {
               <Icon name="arrow-left" size={26} color="#ffffff" />
             </TouchableOpacity>
             <Text style={styles.title}>RSA Amplitude</Text>
+            <TouchableOpacity onPress={showAmplitudeInfo} style={styles.infoBtn} activeOpacity={0.7}>
+              <Icon name="information-outline" size={22} color="rgba(200, 180, 255, 0.85)" />
+            </TouchableOpacity>
           </View>
-          <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.statusDot,
-                {backgroundColor: isConnected ? '#00E676' : '#FF5252'},
-              ]}
-            />
-            <Text style={styles.statusText}>{status}</Text>
-          </View>
+          {status !== 'Ready' && (
+            <View style={styles.statusRow}>
+              <View
+                style={[
+                  styles.statusDot,
+                  {backgroundColor: isConnected ? '#00E676' : '#FF5252'},
+                ]}
+              />
+              <Text style={styles.statusText}>{status}</Text>
+            </View>
+          )}
         </View>
 
         {/* PPG Chart */}
-        <View style={styles.chartContainer}>
-          <PPGChart
-            width={screenWidth - 16}
-            height={chartHeight}
-            dataRef={dataRef}
-            statsRef={statsRef}
-            showStats={false}
-            showYAxisLabels={false}
-            showGridLines={false}
-          />
-        </View>
+        <TouchableOpacity
+          style={styles.ppgToggle}
+          onPress={() => setIsPPGVisible(v => !v)}
+          activeOpacity={0.5}>
+          <View style={styles.ppgToggleLine} />
+          <Icon name={isPPGVisible ? 'chevron-up' : 'chevron-down'} size={14} color="rgba(180, 150, 255, 0.35)" />
+          <View style={styles.ppgToggleLine} />
+        </TouchableOpacity>
+        {isPPGVisible && (
+          <View style={styles.chartContainer}>
+            <PPGChart
+              width={screenWidth - 16}
+              height={chartHeight}
+              dataRef={dataRef}
+              statsRef={statsRef}
+              showStats={false}
+              showYAxisLabels={false}
+              showGridLines={false}
+            />
+          </View>
+        )}
 
         {/* HR / Amplitude / Breathing Rate Charts */}
         <View style={styles.chartContainer}>
@@ -383,12 +425,12 @@ const AmplitudeScreen: React.FC = () => {
           />
         </View>
 
-        {/* Signal Quality Badge */}
-        <View style={[styles.sqiBadge, isBadSignal && styles.sqiBadgeBad]}>
-          <Text style={[styles.sqiText, isBadSignal && styles.sqiTextBad]}>
-            {signalQuality}
-          </Text>
-        </View>
+        {/* Signal Quality Badge — only visible when signal is paused/bad */}
+        {isBadSignal && (
+          <View style={styles.sqiBadgeBad}>
+            <Text style={styles.sqiTextBad}>{signalQuality}</Text>
+          </View>
+        )}
 
         {/* Live Metrics Panel */}
         <View style={styles.metricsPanel}>
@@ -454,21 +496,8 @@ const AmplitudeScreen: React.FC = () => {
         {summary && (
           <View style={styles.summaryPanel}>
             <Text style={styles.summaryTitle}>SESSION SUMMARY</Text>
-            <SummaryRow label="Total Samples" value={summary.total_samples.toString()} />
-            <SummaryRow label="Amplitude Events" value={summary.total_amplitude_events.toString()} />
-            {summary.mean_hr != null && (
-              <>
-                <SummaryRow label="Mean HR" value={`${summary.mean_hr.toFixed(1)} bpm`} />
-                <SummaryRow label="Min HR" value={`${summary.min_hr!.toFixed(1)} bpm`} />
-                <SummaryRow label="Max HR" value={`${summary.max_hr!.toFixed(1)} bpm`} />
-              </>
-            )}
             {summary.mean_amplitude != null && (
-              <>
-                <SummaryRow label="Mean Amplitude" value={`${summary.mean_amplitude.toFixed(2)} BPM`} />
-                <SummaryRow label="Min Amplitude" value={`${summary.min_amplitude!.toFixed(2)} BPM`} />
-                <SummaryRow label="Max Amplitude" value={`${summary.max_amplitude!.toFixed(2)} BPM`} />
-              </>
+              <SummaryRow label="Mean Amplitude" value={`${summary.mean_amplitude.toFixed(2)} BPM`} />
             )}
             {summary.mean_breathing_rate != null && (
               <SummaryRow
@@ -476,28 +505,31 @@ const AmplitudeScreen: React.FC = () => {
                 value={`${summary.mean_breathing_rate.toFixed(1)} br/min`}
               />
             )}
-          </View>
-        )}
-
-        {/* Event History */}
-        {eventHistory.length > 0 && (
-          <View style={styles.historySection}>
-            <Text style={styles.historyTitle}>Recent Amplitude Events</Text>
-            {eventHistory.map((ev, index) => (
-              <View key={`${ev.time_s}-${index}`} style={styles.historyRow}>
-                <Text style={styles.historyTime}>{ev.time_s.toFixed(1)}s</Text>
-                <Text
-                  style={[
-                    styles.historyValue,
-                    {color: FEEDBACK_COLORS[ev.feedback_color]},
-                  ]}>
-                  {ev.amplitude.toFixed(1)} BPM
-                </Text>
-                <Text style={styles.historyBreathing}>
-                  {ev.breathing_rate_bpm.toFixed(1)} br/min
-                </Text>
-              </View>
-            ))}
+            <TouchableOpacity
+              style={styles.expandBtn}
+              onPress={() => setIsSummaryExpanded(v => !v)}
+              activeOpacity={0.7}>
+              <Text style={styles.expandBtnText}>
+                {isSummaryExpanded ? 'Less detail ▲' : 'More detail ▼'}
+              </Text>
+            </TouchableOpacity>
+            {isSummaryExpanded && (
+              <>
+                {summary.mean_hr != null && (
+                  <>
+                    <SummaryRow label="Mean HR" value={`${summary.mean_hr.toFixed(1)} bpm`} />
+                    <SummaryRow label="Min HR" value={`${summary.min_hr!.toFixed(1)} bpm`} />
+                    <SummaryRow label="Max HR" value={`${summary.max_hr!.toFixed(1)} bpm`} />
+                  </>
+                )}
+                {summary.min_amplitude != null && (
+                  <>
+                    <SummaryRow label="Min Amplitude" value={`${summary.min_amplitude.toFixed(2)} BPM`} />
+                    <SummaryRow label="Max Amplitude" value={`${summary.max_amplitude!.toFixed(2)} BPM`} />
+                  </>
+                )}
+              </>
+            )}
           </View>
         )}
 
@@ -648,9 +680,10 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 10,
     color: 'rgba(200, 180, 255, 0.70)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0,
     marginBottom: 6,
+    width: '100%',
+    textAlign: 'center',
   },
   metricRow: {
     flexDirection: 'row',
@@ -785,6 +818,77 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#ffffff',
     letterSpacing: 0.5,
+  },
+  ppgToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 6,
+  },
+  ppgToggleLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(180, 150, 255, 0.15)',
+  },
+  infoBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 2, 20, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalCard: {
+    backgroundColor: 'rgba(40, 25, 90, 0.97)',
+    borderRadius: 14,
+    padding: 24,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.35)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 14,
+    letterSpacing: 0.3,
+  },
+  modalBody: {
+    fontSize: 14,
+    color: 'rgba(210, 190, 255, 0.88)',
+    lineHeight: 22,
+    fontFamily: 'monospace',
+    marginBottom: 20,
+  },
+  modalBtn: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(120, 80, 220, 0.6)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.4)',
+  },
+  modalBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  expandBtn: {
+    alignSelf: 'center',
+    marginTop: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+  },
+  expandBtnText: {
+    fontSize: 12,
+    color: 'rgba(200, 180, 255, 0.70)',
+    fontFamily: 'monospace',
   },
 });
 

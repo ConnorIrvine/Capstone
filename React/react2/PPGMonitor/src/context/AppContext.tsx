@@ -10,7 +10,7 @@ interface AppContextValue {
 }
 
 const AppContext = createContext<AppContextValue>({
-  apiUrl: 'http://192.168.137.1:8000',
+  apiUrl: 'http://192.168.0.70:8000',
   setApiUrl: () => {},
   exitSession: () => {},
   setExitSession: () => {},
@@ -19,7 +19,7 @@ const AppContext = createContext<AppContextValue>({
 });
 
 export const AppContextProvider: React.FC<{children: React.ReactNode}> = ({children}) => {
-  const [apiUrl, setApiUrl] = useState('http://192.168.137.1:8000');
+  const [apiUrl, setApiUrl] = useState('http://192.168.0.70:8000');
   const [isDemoMode, setIsDemoMode] = useState(false);
   const exitSessionRef = useRef<() => void>(() => {});
   const exitSession = useCallback(() => exitSessionRef.current(), []);
