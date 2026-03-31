@@ -4,6 +4,7 @@ import {
   View,
   Text,
   Alert,
+  Modal,
   TouchableOpacity,
   Dimensions,
   StatusBar,
@@ -166,6 +167,7 @@ const HRVScreen: React.FC = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('ppg');
   const [badSegmentWarning, setBadSegmentWarning] = useState(false);
   const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null);
+  const [isInfoVisible, setIsInfoVisible] = useState(false);
 
   const cycleView = useCallback(() => {
     setViewMode(m => {
@@ -173,6 +175,8 @@ const HRVScreen: React.FC = () => {
       return VIEW_MODES[(idx + 1) % VIEW_MODES.length];
     });
   }, []);
+
+  const showHRVInfo = useCallback(() => setIsInfoVisible(true), []);
 
   // Refs
   const latestHRVRef = useRef<HRVResult | undefined>(undefined);
@@ -521,6 +525,31 @@ const HRVScreen: React.FC = () => {
       source={require('../assets/images/background2.jpg')}
       style={styles.container}
       resizeMode="cover">
+
+      {/* Info Modal */}
+      <Modal
+        visible={isInfoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsInfoVisible(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setIsInfoVisible(false)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>HRV Analysis</Text>
+            <Text style={styles.modalBody}>
+              {'HRV (Heart Rate Variability) measures how well your nervous system is recovering and adapting.\n\nTo get the most from your session:\n\n- Breathe slowly and deeply\n- Aim for ~5–6 breaths per minute\n- Relax your body and clear your mind\n\nWatch the traffic light:\n🟢 Green — HRV is improving, keep it up\n🟡 Yellow — slight dip, refocus\n🔴 Red — significant drop, slow your breathing\n\nThe longer you hold green, the better.'}
+            </Text>
+            <TouchableOpacity
+              style={styles.modalBtn}
+              onPress={() => setIsInfoVisible(false)}
+              activeOpacity={0.7}>
+              <Text style={styles.modalBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
       <View style={styles.bgOverlay} />
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
 
@@ -532,20 +561,25 @@ const HRVScreen: React.FC = () => {
               <Icon name="arrow-left" size={26} color="#ffffff" />
             </TouchableOpacity>
             <Text style={styles.title}>HRV Analysis</Text>
+            <TouchableOpacity onPress={showHRVInfo} style={styles.infoBtn} activeOpacity={0.7}>
+              <Icon name="information-outline" size={22} color="rgba(200, 180, 255, 0.85)" />
+            </TouchableOpacity>
             <View style={{flex: 1}} />
             <TouchableOpacity onPress={cycleView} style={styles.cycleModeBtn} activeOpacity={0.7}>
               <Icon name={VIEW_MODE_ICON[viewMode]} size={22} color="rgba(200,180,255,0.85)" />
             </TouchableOpacity>
           </View>
-          <View style={styles.statusRow}>
-            <View
-              style={[
-                styles.statusDot,
-                {backgroundColor: isConnected ? '#00E676' : '#FF5252'},
-              ]}
-            />
-            <Text style={styles.statusText}>{status}</Text>
-          </View>
+          {status !== 'Ready' && (
+            <View style={styles.statusRow}>
+              <View
+                style={[
+                  styles.statusDot,
+                  {backgroundColor: isConnected ? '#00E676' : '#FF5252'},
+                ]}
+              />
+              <Text style={styles.statusText}>{status}</Text>
+            </View>
+          )}
         </View>
 
         {/* Chart — mode-dependent */}
@@ -576,6 +610,27 @@ const HRVScreen: React.FC = () => {
           <View style={styles.badSegmentBadge}>
             <Icon name="alert" size={14} color="#FFD600" style={{marginRight: 6}} />
             <Text style={styles.badSegmentText}>Signal quality issue — recollecting 30s</Text>
+          </View>
+        )}
+
+        {/* Initial collection banner */}
+        {isRecording && feedback === null && !badSegmentWarning && (
+          <View style={styles.collectingBanner}>
+            <Icon name="timer-sand" size={16} color="rgba(200,180,255,0.8)" style={{marginRight: 8}} />
+            <View style={{flex: 1}}>
+              <Text style={styles.collectingText}>
+                Collecting initial data… {Math.min(collectedSeconds, ROLLING_WINDOW_SEC)}/{ROLLING_WINDOW_SEC}s
+              </Text>
+              <View style={styles.collectingTrack}>
+                <View
+                  style={[
+                    styles.collectingFill,
+                    {width: `${Math.min((collectedSeconds / ROLLING_WINDOW_SEC) * 100, 100)}%`},
+                  ]}
+                />
+              </View>
+              <Text style={styles.collectingHint}>Breathe slowly and relax — first result in ~{Math.max(0, ROLLING_WINDOW_SEC - collectedSeconds)}s</Text>
+            </View>
           </View>
         )}
 
@@ -1009,6 +1064,86 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     fontFamily: 'monospace',
+  },
+  infoBtn: {
+    padding: 4,
+    marginLeft: 4,
+  },
+  collectingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(80, 55, 160, 0.55)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.25)',
+    padding: 12,
+    marginVertical: 6,
+  },
+  collectingText: {
+    fontSize: 12,
+    color: 'rgba(210, 190, 255, 0.9)',
+    fontFamily: 'monospace',
+    marginBottom: 6,
+  },
+  collectingTrack: {
+    height: 4,
+    backgroundColor: 'rgba(180, 150, 255, 0.2)',
+    borderRadius: 2,
+    overflow: 'hidden',
+    marginBottom: 5,
+  },
+  collectingFill: {
+    height: 4,
+    backgroundColor: 'rgba(180, 150, 255, 0.75)',
+    borderRadius: 2,
+  },
+  collectingHint: {
+    fontSize: 11,
+    color: 'rgba(180, 160, 255, 0.55)',
+    fontFamily: 'monospace',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 2, 20, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  modalCard: {
+    backgroundColor: 'rgba(40, 25, 90, 0.97)',
+    borderRadius: 14,
+    padding: 24,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.35)',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 14,
+    letterSpacing: 0.3,
+  },
+  modalBody: {
+    fontSize: 14,
+    color: 'rgba(210, 190, 255, 0.88)',
+    lineHeight: 22,
+    fontFamily: 'monospace',
+    marginBottom: 20,
+  },
+  modalBtn: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    backgroundColor: 'rgba(120, 80, 220, 0.6)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(180, 150, 255, 0.4)',
+  },
+  modalBtnText: {
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 14,
   },
 });
 
