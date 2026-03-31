@@ -23,13 +23,20 @@ interface Section {
 
 const SECTIONS: Section[] = [
   {
-    title: 'RMSSD',
+    title: 'General Instructions',
+    icon: 'information-outline',
+    color: '#B4A0FF',
+    paragraphs: [
+      'CalmCoach provides calm through two features. Breathing is important for both. Try slow comfortable breathing with exhales longer than inhales. Imagine you are breathing into your abdomen, a few inches below your navel. This will help you breathe in a more relaxed way. Your goal is to continuously receive green feedback throughout the exercises.',
+    ],
+  },
+  {
+    title: 'Vagus Nerve Activity HRV',
     icon: 'heart-pulse',
     color: '#00E676',
     paragraphs: [
-      'RMSSD is a metric associated with vagus nerve activity. Increased RMSSD indicates increased parasympathetic nervous system activation or calm.',
-      'RMSSD will be measured every 10 seconds. Red coloured feedback means the RMSSD is significantly less than the previous measurement, yellow means only slightly less than the previous and green means higher. Aim to increase your RMSSD throughout your session.',
-      'Conduct slow comfortable breathing with exhales longer than inhales. Try to breathe into your abdomen, a few inches below your navel. This will help you breathe in a more relaxed way. Aim to receive green feedback. This feature can be used for other calming exercises as well that would benefit from feedback.',
+      'The vagus nerve connects the brain and the heart and is an important part of the calming and restful parasympathetic nervous system. By taking the Root Mean Square of Successive Differences (RMSSD) of the time between heart beats, vagus nerve activity can be measured and evaluated. A higher RMSSD indicates more vagus nerve activity, showing that your body is starting to relax.',
+      'Vagus nerve activity via the RMSSD will be measured every 10 seconds. Red coloured feedback means the RMSSD is significantly less than the previous measurement, yellow means only slightly less than the previous and green means higher or the same. Aim to increase your RMSSD throughout your session. This feature can be used with various calming exercises such as meditation.',
     ],
   },
   {
@@ -37,11 +44,11 @@ const SECTIONS: Section[] = [
     icon: 'waveform',
     color: '#82b1ff',
     paragraphs: [
-      'During inhalation, heart rate increases and during exhalation, heart rate decreases. This phenomenon is known as Respiratory Sinus Arrhythmia (RSA).',
-      'During paced breathing, the heart rate graph resembles a wave and the amplitude of this wave is the RSA amplitude. Maximizing the RSA amplitude increases vagus nerve activity and promotes calm.',
-      'In this feature, a heart rate graph is displayed, updating every second with an aim to increase the RSA amplitude. Attempt to synchronise your breathing to the heart rate graph, by inhaling when the heart rate increases and exhaling when the heart rate decreases. Alternatively, you may also conduct paced breathing without actively attempting to synchronise with the heart rate graph. Feedback on the RSA amplitude is provided. Green indicates the amplitude is larger or equal to the previous measured amplitude, yellow indicates the amplitude is only slightly smaller, and any smaller is indicated by red. Sound feedback is provided through a pleasant tone for green, a neutral tone for yellow and no sound for red.',
-      'Conduct slow comfortable breathing and try to breathe into your abdomen, a few inches below your navel. This will help you breathe in a more relaxed way.',
-      'With practice, you may notice a breathing rate that consistently maximizes your RSA amplitude. This is your resonant frequency, and knowing it allows you to simply breathe at this frequency to maximize calm without the need for feedback.',
+      'When you breathe, your heart rate changes in a predictable way. During inhalation, your heart rate increases and during exhalation your heart rate decreases. This phenomenon is known as Respiratory Sinus Arrhythmia (RSA).',
+      'During paced breathing, the heart rate graph resembles a wave and the height of this wave is the RSA amplitude. Maximizing the RSA amplitude leads to efficient breathing and promotes calm.',
+      'There are two ways you can try to increase your RSA amplitude:\n\nOption 1: Using the heart rate display, aim to synchronise your breathing to the heart rate graph, by inhaling when the heart rate increases and exhaling when the heart rate decreases.\n\nOption 2: Simply perform paced breathing without actively attempting to synchronise with the heart rate graph.',
+      'Regardless of the approach you chose, feedback will be provided on your RSA amplitude. Green indicates the amplitude is larger or equal to the previous measured amplitude, yellow indicates the amplitude is only slightly smaller, and significantly smaller is indicated by red. Sound feedback is provided through a pleasant tone for green, a neutral tone for yellow and no sound for red.',
+      'With practice, you may notice a breathing rate that consistently maximizes your RSA amplitude. This is your "resonant frequency", and knowing it allows you to simply breathe at this frequency to maximize calm without the need for feedback. Most people\'s resonant frequency is between 5 and 6 breaths per minute.',
     ],
   },
 ];

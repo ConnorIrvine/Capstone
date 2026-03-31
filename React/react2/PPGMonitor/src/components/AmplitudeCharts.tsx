@@ -234,14 +234,14 @@ const AmplitudeCharts: React.FC<Props> = ({viewportWidth, height, dataRef, isStr
 
   const FB_COLORS: Record<string, string> = {green: '#00E676', yellow: '#FFD600', red: '#FF5252'};
   for (const ev of events) {
+    const cx = xPx(ev.time_s);
+    const cy = yPx(ev.amplitude, ampLo, ampHi, chart2Y, secPlotH);
+    const dotColor = FB_COLORS[ev.feedback_color] ?? '#448AFF';
     elements.push(
-      <Circle
-        key={k()}
-        cx={xPx(ev.time_s)}
-        cy={yPx(ev.amplitude, ampLo, ampHi, chart2Y, secPlotH)}
-        r={3}
-        color={FB_COLORS[ev.feedback_color] ?? '#448AFF'}
-      />,
+      <Circle key={k()} cx={cx} cy={cy} r={3} color={dotColor} />,
+    );
+    elements.push(
+      <SkiaText key={k()} x={cx - 10} y={cy - 7} text={ev.amplitude.toFixed(1)} font={font} color={dotColor} />,
     );
   }
 
@@ -287,6 +287,9 @@ const AmplitudeCharts: React.FC<Props> = ({viewportWidth, height, dataRef, isStr
     cross.lineTo(cx - s, cy + s);
     elements.push(
       <SkiaPath key={k()} path={cross} color="#FF5252" style="stroke" strokeWidth={1.5} />,
+    );
+    elements.push(
+      <SkiaText key={k()} x={cx - 10} y={cy - 7} text={ev.breathing_rate_bpm.toFixed(1)} font={font} color="rgba(255,120,120,0.9)" />,
     );
   }
 
