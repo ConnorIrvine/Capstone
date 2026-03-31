@@ -55,7 +55,7 @@ const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> =
   if (valid.length < 2) {
     return (
       <View style={{height: CHART_H, justifyContent: 'center', alignItems: 'center'}}>
-        <Text style={{color: 'rgba(180,160,255,0.45)', fontSize: 13}}>
+        <Text style={{color: '#ffffff', fontSize: 13}}>
           Need 2+ weeks of data
         </Text>
       </View>
@@ -88,13 +88,13 @@ const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> =
     <View style={{flexDirection: 'row', alignItems: 'flex-start', marginLeft: -CARD_PAD}}>
       {/* Y-axis labels */}
       <View style={{width: YAXIS_W, height: CHART_H, justifyContent: 'space-between', alignItems: 'flex-end', paddingRight: 4}}>
-        <Text style={{fontSize: 9, color: 'rgba(200,180,255,0.5)', fontWeight: '600'}}>
+        <Text style={{fontSize: 9, color: '#ffffff', fontWeight: '600'}}>
           {maxV % 1 === 0 ? maxV.toFixed(0) : maxV.toFixed(1)}
         </Text>
-        <Text style={{fontSize: 9, color: 'rgba(200,180,255,0.5)', fontWeight: '600'}}>
+        <Text style={{fontSize: 9, color: '#ffffff', fontWeight: '600'}}>
           {((maxV + minV) / 2) % 1 === 0 ? ((maxV + minV) / 2).toFixed(0) : ((maxV + minV) / 2).toFixed(1)}
         </Text>
-        <Text style={{fontSize: 9, color: 'rgba(200,180,255,0.5)', fontWeight: '600'}}>
+        <Text style={{fontSize: 9, color: '#ffffff', fontWeight: '600'}}>
           {minV % 1 === 0 ? minV.toFixed(0) : minV.toFixed(1)}
         </Text>
       </View>
@@ -167,7 +167,7 @@ const SparkLine: React.FC<{points: SparkPoint[]; color: string; unit: string}> =
                 width: 44,
                 textAlign: 'center',
                 fontSize: 10,
-                color: 'rgba(200,180,255,0.55)',
+                color: '#ffffff',
               }}>
               {p.label}
             </Text>
@@ -344,7 +344,7 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
             <Text style={styles.trackingMetricLabel}>Mean RSA Amplitude (bpm)</Text>
             <SparkLine
               points={longTermPoints.amplitudePoints}
-              color="#FF9800"
+              color="#448AFF"
               unit=" bpm"
             />
           </View>
@@ -389,11 +389,9 @@ const SessionHistoryScreen: React.FC<Props> = ({onBack, onInsights}) => {
                   <Text style={[styles.cell, styles.cellDay]}>{row.dayLabel}</Text>
                   <Text style={[styles.cell, styles.cellTime]}>{row.time}</Text>
                   <Text style={[styles.cell, styles.cellDur]}>{row.duration}</Text>
-                  {row.detail !== '' && (
-                    <Text style={[styles.cell, styles.cellDetail,
-                      row.session.type === 'amplitude' ? {color: '#FF9800'} : {color: '#00E676'},
-                    ]}>{row.detail}</Text>
-                  )}
+                  <Text style={[styles.cell, styles.cellDetail,
+                    row.session.type === 'amplitude' ? {color: '#ffffff'} : {color: '#ffffff'},
+                  ]}>{row.detail}</Text>
                   <TouchableOpacity
                     style={styles.deleteBtn}
                     onPress={() => handleDeleteSession(row.session)}
@@ -481,7 +479,7 @@ const styles = StyleSheet.create({
   feedbackText: {
     fontSize: 20,
     fontWeight: '700',
-    color: 'rgba(220, 200, 255, 0.9)',
+    color: '#ffffff',
     letterSpacing: 0.3,
   },
   trackingCard: {
@@ -493,19 +491,19 @@ const styles = StyleSheet.create({
   },
   trackingTitle: {
     fontSize: 12,
-    color: 'rgba(200, 180, 255, 0.65)',
+    color: '#ffffff',
     letterSpacing: 0.8,
     fontWeight: '700',
     marginBottom: 2,
   },
   trackingSubtitle: {
     fontSize: 11,
-    color: 'rgba(180, 160, 255, 0.45)',
+    color: '#ffffff',
     marginBottom: 14,
   },
   trackingMetricLabel: {
     fontSize: 13,
-    color: 'rgba(200, 180, 255, 0.75)',
+    color: '#ffffff',
     fontWeight: '600',
     marginBottom: 6,
   },
@@ -547,12 +545,12 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: 'rgba(200, 180, 255, 0.85)',
+    color: '#ffffff',
     fontWeight: '600',
   },
   emptySubText: {
     fontSize: 13,
-    color: 'rgba(180, 160, 255, 0.55)',
+    color: '#ffffff',
     textAlign: 'center',
     paddingHorizontal: 20,
   },

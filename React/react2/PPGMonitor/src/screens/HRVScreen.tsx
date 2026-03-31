@@ -539,7 +539,7 @@ const HRVScreen: React.FC = () => {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>HRV Analysis</Text>
             <Text style={styles.modalBody}>
-              {'HRV (Heart Rate Variability) measures how well your nervous system is recovering and adapting.\n\nTo get the most from your session:\n\n- Breathe slowly and deeply\n- Aim for ~5–6 breaths per minute\n- Relax your body and clear your mind\n\nWatch the traffic light:\n🟢 Green — HRV is improving, keep it up\n🟡 Yellow — slight dip, refocus\n🔴 Red — significant drop, slow your breathing\n\nThe longer you hold green, the better.'}
+              {'HRV (Heart Rate Variability) measures how well your nervous system is recovering and adapting.\n\nTo get the most from your session:\n\n- Breathe slowly and deeply\n- Aim for ~5–6 breaths per minute\n- Relax your body and clear your mind\n\nWatch the traffic light:\n🟢 Green — HRV is improving, keep it up\n🟡 Yellow — slight dip, refocus\n🔴 Red — significant drop, adjust your breathing\n\nThe longer you hold green, the better.'}
             </Text>
             <TouchableOpacity
               style={styles.modalBtn}
