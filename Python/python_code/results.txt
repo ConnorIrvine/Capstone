@@ -4,7 +4,7 @@ HRV MONITORING SYSTEM - Meditation Feedback
 ============================================================
 
 Scanning for BLE device 'NanoESP32_PPG'...
-  Found: NanoESP32_PPG (34:85:18:7B:75:D9) RSSI=-57
+  Found: NanoESP32_PPG (34:85:18:7B:75:D9) RSSI=-40
 
 Auto-selected device: NanoESP32_PPG (34:85:18:7B:75:D9)
 
@@ -13,14 +13,14 @@ Enter recording duration in seconds (e.g., 180 for 3 minutes):
 CONFIGURATION
 ============================================================
 BLE Device: 34:85:18:7B:75:D9
-Duration: 150 seconds (2.5 minutes)
+Duration: 180 seconds (3.0 minutes)
 ============================================================
 
 Start recording? (y/n): 
 ============================================================
 Connecting to BLE device 34:85:18:7B:75:D9...
 Connected to 34:85:18:7B:75:D9 via BLE
-Recording for 150 seconds...
+Recording for 180 seconds...
 HRV calculated every 10 seconds using 30-second windows
 ============================================================
 
@@ -35,81 +35,97 @@ Collecting initial data (30 seconds)...
 Samples collected: 100 | Time: 1.0sSamples collected: 200 | Time: 2.0sSamples collected: 300 | Time: 3.0sSamples collected: 400 | Time: 4.0sSamples collected: 500 | Time: 5.0sSamples collected: 600 | Time: 6.0sSamples collected: 700 | Time: 7.0sSamples collected: 800 | Time: 8.0sSamples collected: 900 | Time: 9.0sSamples collected: 1000 | Time: 10.0sSamples collected: 1100 | Time: 11.0sSamples collected: 1200 | Time: 12.0sSamples collected: 1300 | Time: 13.0sSamples collected: 1400 | Time: 14.0sSamples collected: 1500 | Time: 15.0sSamples collected: 1600 | Time: 16.0sSamples collected: 1700 | Time: 17.0sSamples collected: 1800 | Time: 18.0sSamples collected: 1900 | Time: 19.0sSamples collected: 2000 | Time: 20.0sSamples collected: 2100 | Time: 21.0sSamples collected: 2200 | Time: 22.0sSamples collected: 2300 | Time: 23.0sSamples collected: 2400 | Time: 24.0sSamples collected: 2500 | Time: 25.0sSamples collected: 2600 | Time: 26.0sSamples collected: 2700 | Time: 27.0sSamples collected: 2800 | Time: 28.0sSamples collected: 2900 | Time: 29.0sSamples collected: 3000 | Time: 30.0s
 ============================================================
 Window #1
-RMSSD: 253.89 ms | Change: N/A (first reading)
+RMSSD: 61.99 ms | Change: N/A (first reading)
 Status: [~] YELLOW - GOOD - SLIGHT DECREASE
 ============================================================
 Samples collected: 3100 | Time: 31.0sSamples collected: 3200 | Time: 32.0sSamples collected: 3300 | Time: 33.0sSamples collected: 3400 | Time: 34.0sSamples collected: 3500 | Time: 35.0sSamples collected: 3600 | Time: 36.0sSamples collected: 3700 | Time: 37.0sSamples collected: 3800 | Time: 38.0sSamples collected: 3900 | Time: 39.0sSamples collected: 4000 | Time: 40.0s
 ============================================================
 Window #2
-RMSSD: 268.72 ms | Change: +14.83 ms
+RMSSD: 108.40 ms | Change: +46.42 ms
 Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
 ============================================================
 Samples collected: 4100 | Time: 41.0sSamples collected: 4200 | Time: 42.0sSamples collected: 4300 | Time: 43.0sSamples collected: 4400 | Time: 44.0sSamples collected: 4500 | Time: 45.0sSamples collected: 4600 | Time: 46.0sSamples collected: 4700 | Time: 47.0sSamples collected: 4800 | Time: 48.0sSamples collected: 4900 | Time: 49.0sSamples collected: 5000 | Time: 50.0s
 ============================================================
 Window #3
-RMSSD: 456.76 ms | Change: +188.04 ms
-Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+RMSSD: 104.29 ms | Change: -4.11 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
 ============================================================
 Samples collected: 5100 | Time: 51.0sSamples collected: 5200 | Time: 52.0sSamples collected: 5300 | Time: 53.0sSamples collected: 5400 | Time: 54.0sSamples collected: 5500 | Time: 55.0sSamples collected: 5600 | Time: 56.0sSamples collected: 5700 | Time: 57.0sSamples collected: 5800 | Time: 58.0sSamples collected: 5900 | Time: 59.0sSamples collected: 6000 | Time: 60.0s
 ============================================================
 Window #4
-RMSSD: 447.23 ms | Change: -9.53 ms
+RMSSD: 97.83 ms | Change: -6.46 ms
 Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
 ============================================================
 Samples collected: 6100 | Time: 61.0sSamples collected: 6200 | Time: 62.0sSamples collected: 6300 | Time: 63.0sSamples collected: 6400 | Time: 64.0sSamples collected: 6500 | Time: 65.0sSamples collected: 6600 | Time: 66.0sSamples collected: 6700 | Time: 67.0sSamples collected: 6800 | Time: 68.0sSamples collected: 6900 | Time: 69.0sSamples collected: 7000 | Time: 70.0s
 ============================================================
 Window #5
-RMSSD: 614.38 ms | Change: +167.15 ms
-Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+RMSSD: 56.37 ms | Change: -41.46 ms
+Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
 ============================================================
-Samples collected: 7100 | Time: 71.0sSamples collected: 7200 | Time: 72.0sSamples collected: 7300 | Time: 73.0sSamples collected: 7400 | Time: 74.0sSamples collected: 7500 | Time: 75.0sSamples collected: 7600 | Time: 76.0sSamples collected: 7700 | Time: 77.0sSamples collected: 7800 | Time: 78.0sSamples collected: 7900 | Time: 79.0sSamples collected: 8000 | Time: 80.0s[DEBUG] Segment failed peak plausibility check
-[DEBUG] Bad segment detected in window (segment #5)
-
+Samples collected: 7100 | Time: 71.0sSamples collected: 7200 | Time: 72.0sSamples collected: 7300 | Time: 73.0sSamples collected: 7400 | Time: 74.0sSamples collected: 7500 | Time: 75.0sSamples collected: 7600 | Time: 76.0sSamples collected: 7700 | Time: 77.0sSamples collected: 7800 | Time: 78.0sSamples collected: 7900 | Time: 79.0sSamples collected: 8000 | Time: 80.0s
 ============================================================
 Window #6
-RMSSD: 650.89 ms | Change: +36.50 ms
-Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+RMSSD: 55.57 ms | Change: -0.80 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
 ============================================================
 Samples collected: 8100 | Time: 81.0sSamples collected: 8200 | Time: 82.0sSamples collected: 8300 | Time: 83.0sSamples collected: 8400 | Time: 84.0sSamples collected: 8500 | Time: 85.0sSamples collected: 8600 | Time: 86.0sSamples collected: 8700 | Time: 87.0sSamples collected: 8800 | Time: 88.0sSamples collected: 8900 | Time: 89.0sSamples collected: 9000 | Time: 90.0s
 ============================================================
 Window #7
-RMSSD: 668.59 ms | Change: +17.70 ms
+RMSSD: 55.66 ms | Change: +0.09 ms
 Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
 ============================================================
 Samples collected: 9100 | Time: 91.0sSamples collected: 9200 | Time: 92.0sSamples collected: 9300 | Time: 93.0sSamples collected: 9400 | Time: 94.0sSamples collected: 9500 | Time: 95.0sSamples collected: 9600 | Time: 96.0sSamples collected: 9700 | Time: 97.0sSamples collected: 9800 | Time: 98.0sSamples collected: 9900 | Time: 99.0sSamples collected: 10000 | Time: 100.0s
 ============================================================
 Window #8
-RMSSD: 510.62 ms | Change: -157.97 ms
-Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
+RMSSD: 55.44 ms | Change: -0.21 ms
+Status: [~] YELLOW - GOOD - SLIGHT DECREASE
 ============================================================
 Samples collected: 10100 | Time: 101.0sSamples collected: 10200 | Time: 102.0sSamples collected: 10300 | Time: 103.0sSamples collected: 10400 | Time: 104.0sSamples collected: 10500 | Time: 105.0sSamples collected: 10600 | Time: 106.0sSamples collected: 10700 | Time: 107.0sSamples collected: 10800 | Time: 108.0sSamples collected: 10900 | Time: 109.0sSamples collected: 11000 | Time: 110.0s
 ============================================================
 Window #9
-RMSSD: 358.19 ms | Change: -152.43 ms
-Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
+RMSSD: 56.36 ms | Change: +0.92 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
 ============================================================
 Samples collected: 11100 | Time: 111.0sSamples collected: 11200 | Time: 112.0sSamples collected: 11300 | Time: 113.0sSamples collected: 11400 | Time: 114.0sSamples collected: 11500 | Time: 115.0sSamples collected: 11600 | Time: 116.0sSamples collected: 11700 | Time: 117.0sSamples collected: 11800 | Time: 118.0sSamples collected: 11900 | Time: 119.0sSamples collected: 12000 | Time: 120.0s
 ============================================================
 Window #10
-RMSSD: 355.84 ms | Change: -2.35 ms
+RMSSD: 51.47 ms | Change: -4.89 ms
 Status: [~] YELLOW - GOOD - SLIGHT DECREASE
 ============================================================
 Samples collected: 12100 | Time: 121.0sSamples collected: 12200 | Time: 122.0sSamples collected: 12300 | Time: 123.0sSamples collected: 12400 | Time: 124.0sSamples collected: 12500 | Time: 125.0sSamples collected: 12600 | Time: 126.0sSamples collected: 12700 | Time: 127.0sSamples collected: 12800 | Time: 128.0sSamples collected: 12900 | Time: 129.0sSamples collected: 13000 | Time: 130.0s
 ============================================================
 Window #11
-RMSSD: 170.73 ms | Change: -185.11 ms
-Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
+RMSSD: 56.63 ms | Change: +5.17 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
 ============================================================
 Samples collected: 13100 | Time: 131.0sSamples collected: 13200 | Time: 132.0sSamples collected: 13300 | Time: 133.0sSamples collected: 13400 | Time: 134.0sSamples collected: 13500 | Time: 135.0sSamples collected: 13600 | Time: 136.0sSamples collected: 13700 | Time: 137.0sSamples collected: 13800 | Time: 138.0sSamples collected: 13900 | Time: 139.0sSamples collected: 14000 | Time: 140.0s
 ============================================================
 Window #12
-RMSSD: 127.44 ms | Change: -43.29 ms
-Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
+RMSSD: 64.27 ms | Change: +7.63 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
 ============================================================
 Samples collected: 14100 | Time: 141.0sSamples collected: 14200 | Time: 142.0sSamples collected: 14300 | Time: 143.0sSamples collected: 14400 | Time: 144.0sSamples collected: 14500 | Time: 145.0sSamples collected: 14600 | Time: 146.0sSamples collected: 14700 | Time: 147.0sSamples collected: 14800 | Time: 148.0sSamples collected: 14900 | Time: 149.0sSamples collected: 15000 | Time: 150.0s
 ============================================================
 Window #13
-RMSSD: 55.92 ms | Change: -71.52 ms
+RMSSD: 73.83 ms | Change: +9.57 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+Samples collected: 15100 | Time: 151.0sSamples collected: 15200 | Time: 152.0sSamples collected: 15300 | Time: 153.0sSamples collected: 15400 | Time: 154.0sSamples collected: 15500 | Time: 155.0sSamples collected: 15600 | Time: 156.0sSamples collected: 15700 | Time: 157.0sSamples collected: 15800 | Time: 158.0sSamples collected: 15900 | Time: 159.0sSamples collected: 16000 | Time: 160.0s
+============================================================
+Window #14
+RMSSD: 74.64 ms | Change: +0.81 ms
+Status: [✓] GREEN - EXCELLENT - HRV IMPROVING
+============================================================
+Samples collected: 16100 | Time: 161.0sSamples collected: 16200 | Time: 162.0sSamples collected: 16300 | Time: 163.0sSamples collected: 16400 | Time: 164.0sSamples collected: 16500 | Time: 165.0sSamples collected: 16600 | Time: 166.0sSamples collected: 16700 | Time: 167.0sSamples collected: 16800 | Time: 168.0sSamples collected: 16900 | Time: 169.0sSamples collected: 17000 | Time: 170.0s
+============================================================
+Window #15
+RMSSD: 67.41 ms | Change: -7.24 ms
+Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
+============================================================
+Samples collected: 17100 | Time: 171.0sSamples collected: 17200 | Time: 172.0sSamples collected: 17300 | Time: 173.0sSamples collected: 17400 | Time: 174.0sSamples collected: 17500 | Time: 175.0sSamples collected: 17600 | Time: 176.0sSamples collected: 17700 | Time: 177.0sSamples collected: 17800 | Time: 178.0sSamples collected: 17900 | Time: 179.0sSamples collected: 18000 | Time: 180.0s
+============================================================
+Window #16
+RMSSD: 61.62 ms | Change: -5.78 ms
 Status: [✗] RED - REFOCUS - SIGNIFICANT DROP
 ============================================================
 
@@ -119,14 +135,14 @@ Recording complete!
 ============================================================
 SESSION SUMMARY
 ============================================================
-Total samples collected: 15000
-Total HRV windows analyzed: 13
-Final RMSSD: 55.92 ms
+Total samples collected: 18004
+Total HRV windows analyzed: 16
+Final RMSSD: 61.62 ms
 
 Status Distribution:
-  GREEN (Improving):        5 windows
-  YELLOW (Minor decrease):  2 windows
-  RED (Significant drop):   6 windows
+  GREEN (Improving):        7 windows
+  YELLOW (Minor decrease):  5 windows
+  RED (Significant drop):   4 windows
 ============================================================
 
 Session complete. Thank you!
